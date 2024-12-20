@@ -664,6 +664,7 @@ exports.getAllFeedback = async (req, res) => {
             email: user.email,
             name: user.name,
             feedback: user.feedback,
+            userId: user._id
         }));
 
         res.status(200).json({ feedbacks });
