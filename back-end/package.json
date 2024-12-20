@@ -10,7 +10,7 @@
   "keywords": [],
   "author": "",
   "engines": {
-    "node": "v23.2.0"
+    "node": "23.2.0"
   },
   "license": "ISC",
   "dependencies": {
