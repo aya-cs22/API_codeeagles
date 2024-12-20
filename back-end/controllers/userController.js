@@ -751,16 +751,16 @@ exports.joinGroupRequest = async (req, res) => {
                 <p>The user <strong>${user.name}</strong> (<a href="mailto:${user.email}">${user.email}</a>) has requested to join the group "<strong>${group.title}</strong>".</p>
                 <p>Please review the request and take appropriate action:</p>
                 <div style="display: flex; gap: 10px;">
-                    <a href="http://localhost:8000/api/users/accept-join-request" 
+                    <a href="https://api-codeeagles-cpq8.vercel.app/api/users/accept-join-request" 
                         style="padding: 10px 15px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;"
-                        onclick="fetch('http://localhost:8000/api/users/accept-join-request', { method: 'POST', body: JSON.stringify({ groupId: '${groupId}', userId: '${userId}' }), headers: { 'Content-Type': 'application/json' }});">
+                        onclick="fetch('https://api-codeeagles-cpq8.vercel.app/api/users/accept-join-request', { method: 'POST', body: JSON.stringify({ groupId: '${groupId}', userId: '${userId}' }), headers: { 'Content-Type': 'application/json' }});">
                         Accept
                     </a>
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <a href="http://localhost:8000/api/users/reject-join-request" 
+                    <a href="https://api-codeeagles-cpq8.vercel.app/api/users/reject-join-request" 
                         style="padding: 10px 15px; background-color: #FF6347; color: white; text-decoration: none; border-radius: 5px;"
-                        onclick="fetch('http://localhost:8000/api/users/reject-join-request', { method: 'POST', body: JSON.stringify({ groupId: '${groupId}', userId: '${userId}' }), headers: { 'Content-Type': 'application/json' }});">
+                        onclick="fetch('https://api-codeeagles-cpq8.vercel.app/api/users/reject-join-request', { method: 'POST', body: JSON.stringify({ groupId: '${groupId}', userId: '${userId}' }), headers: { 'Content-Type': 'application/json' }});">
                         Reject
                     </a>
                 </div>
