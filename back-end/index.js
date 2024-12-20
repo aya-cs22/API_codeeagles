@@ -5,8 +5,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 dotenv.config({ path: 'config.env' });
-const dbConnection = require('./config/db');
-const userController = require('./controllers/userController');
+const dbConnection = require('./config/db.js');
+const userController = require('./controllers/userController.js');
 const cron = require('node-cron');
 const Groups = require('./models/groups.js');
 
@@ -29,8 +29,8 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // Routes
-const userRoutes = require('./routes/userRoutes');
-const groupsRoutes = require('./routes/groupsRoutes');
+const userRoutes = require('./routes/userRoutes.js');
+const groupsRoutes = require('./routes/groupsRoutes.js');
 const lectureRoutes = require('./routes/lectureRoutes.js');
 app.use('/api/users', userRoutes);
 app.use('/api/groups', groupsRoutes);
