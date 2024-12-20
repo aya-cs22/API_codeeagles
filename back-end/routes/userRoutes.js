@@ -13,7 +13,7 @@ router.post('/reset-password', userController.resetPassword);
 //feedback
 router.post('/submit-feedback', authMiddleware, userController.submitFeedback);
 router.get('/get-all-feedback', userController.getAllFeedback);
-router.delete('/:userId', authMiddleware, userController.deleteFeedback);
+router.delete('/:userId/feedback', authMiddleware, userController.deleteFeedback);
 
 
 
