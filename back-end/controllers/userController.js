@@ -290,7 +290,72 @@ exports.login = async (req, res) => {
     }
 };
 
-// add user by admin
+// // add user by admin
+// exports.addUser = async (req, res) => {
+//     const session = await mongoose.startSession();
+
+//     try {
+//         if (req.user.role !== 'admin') {
+//             return res.status(403).json({ message: 'Access denied. Admins only.' });
+//         }
+
+//         const { name, email, password, phone_number, role, groupId } = req.body;
+
+//         if (!name || !email || !password || !phone_number || !role) {
+//             return res.status(400).json({ message: 'All fields except groupId are required' });
+//         }
+
+//         const exists_user = await User.findOne({ email });
+//         if (exists_user) {
+//             return res.status(400).json({ message: 'User already exists' });
+//         }
+
+//         let group;
+//         if (groupId) {
+//             group = await Groups.findById(groupId);
+//             if (!group) {
+//                 return res.status(404).json({ message: 'Group not found' });
+//             }
+//         }
+
+//         await session.startTransaction();
+
+//         const newUser = new User({
+//             name,
+//             email,
+//             password,
+//             phone_number,
+//             role,
+//             isVerified: true,
+//             groups: group ? [{
+//                 groupId: groupId,
+//                 status: 'approved'
+//             }] : [],
+//         });
+
+//         await newUser.save({ session });
+
+//         if (group) {
+//             group.members.push({ user_id: newUser._id });
+//             await group.save({ session });
+//         }
+
+//         await session.commitTransaction();
+//         session.endSession();
+
+//         res.status(201).json({ message: 'User added successfully', user: newUser });
+//     } catch (error) {
+
+//         if (session.inTransaction()) {
+//             await session.abortTransaction();
+//         }
+//         session.endSession();
+
+//         console.error('Error adding user: ', error);
+//         res.status(500).json({ message: 'Server error' });
+//     }
+// };
+
 exports.addUser = async (req, res) => {
     const session = await mongoose.startSession();
 
@@ -327,10 +392,16 @@ exports.addUser = async (req, res) => {
             phone_number,
             role,
             isVerified: true,
-            groups: group ? [{
-                groupId: groupId,
-                status: 'approved'
-            }] : [],
+            groups: group
+                ? [
+                    {
+                        groupId: groupId,
+                        status: 'approved',
+                    },
+                ]
+                : [],
+            attendance: [],
+            totalAbsent: 0,
         });
 
         await newUser.save({ session });
@@ -338,6 +409,18 @@ exports.addUser = async (req, res) => {
         if (group) {
             group.members.push({ user_id: newUser._id });
             await group.save({ session });
+
+            const lectures = await Lectures.find({ group_id: groupId });
+            for (const lecture of lectures) {
+                newUser.attendance.push({
+                    lectureId: lecture._id,
+                    attendanceStatus: 'absent',
+                    attendedAt: null,
+                });
+                newUser.totalAbsent += 1;
+            }
+
+            await newUser.save({ session });
         }
 
         await session.commitTransaction();
@@ -345,7 +428,6 @@ exports.addUser = async (req, res) => {
 
         res.status(201).json({ message: 'User added successfully', user: newUser });
     } catch (error) {
-
         if (session.inTransaction()) {
             await session.abortTransaction();
         }
@@ -355,7 +437,6 @@ exports.addUser = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
-
 
 
 // get user by token
@@ -422,10 +503,6 @@ exports.getAllUsers = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
-
-
-
-
 
 
 
@@ -823,6 +900,74 @@ exports.getPendingJoinRequestsByGroup = async (req, res) => {
     }
 };
 
+// exports.acceptJoinRequest = async (req, res) => {
+//     try {
+//         const { groupId, userId } = req.body;
+//         const adminId = req.user.id;
+
+//         const adminUser = await User.findById(adminId);
+//         if (adminUser.role !== 'admin') {
+//             return res.status(403).json({ message: 'You do not have permission to perform this action' });
+//         }
+
+//         const user = await User.findById(userId);
+//         const group = await Groups.findById(groupId);
+
+//         if (!user || !group) {
+//             return res.status(404).json({ message: 'User or Group not found' });
+//         }
+
+//         const userRequest = user.groups.find(group => group.groupId.toString() === groupId);
+//         if (!userRequest || userRequest.status !== 'pending') {
+//             return res.status(400).json({ message: 'No pending request found for this group' });
+//         }
+
+//         userRequest.status = 'approved';
+//         await user.save();
+
+//         group.members.push({ user_id: user._id });
+//         await group.save();
+
+//         const mailOptions = {
+//             from: process.env.ADMIN_EMAIL,
+//             to: user.email,
+//             subject: '🎉 Your Join Request Has Been Approved!',
+//             html: `
+//               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+//                 <header style="background-color: #4CAF50; padding: 20px; text-align: center; color: white;">
+//                   <h1 style="margin: 0; font-size: 24px;">Welcome to the ${group.title} Group!</h1>
+//                 </header>
+//                 <div style="padding: 20px; background-color: #f9f9f9;">
+//                   <h2 style="font-size: 20px; color: #333;">Hello, ${user.name}!</h2>
+//                   <p style="color: #555;">We are pleased to inform you that your request to join the group <strong>"${group.title}"</strong> has been approved. You are now part of our amazing community!</p>
+//                   <p style="color: #555;">We are excited to have you on board and look forward to your contributions. If you have any questions or need help, feel free to reach out to us.</p>
+//                   <p style="margin-top: 20px; color: #555;">Best regards,<br>The Team</p>
+//                 </div>
+//                 <footer style="background-color: #f1f1f1; padding: 10px; text-align: center; color: #777; font-size: 14px;">
+//                 <p style="margin: 0;">Need help? Contact us at <a href="mailto:codeeagles653@gmail.com" style="color:  #4CAF50; text-decoration: none;">codeeagles653@gmail.com</a></p>
+//                 </footer>
+//               </div>
+//             `
+//         };
+
+
+//         transporter.sendMail(mailOptions, (error, info) => {
+//             if (error) {
+//                 console.error('Error sending email:', error);
+//                 return res.status(500).json({ message: 'Error sending email' });
+//             }
+//             console.log('Email sent:', info.response);
+//             return res.status(200).json({ message: 'Join request approved successfully' });
+//         });
+
+//     } catch (error) {
+//         console.error('Error in accepting join request:', error);
+//         return res.status(500).json({ message: 'Server error' });
+//     }
+// };
+
+
+
 exports.acceptJoinRequest = async (req, res) => {
     try {
         const { groupId, userId } = req.body;
@@ -840,12 +985,28 @@ exports.acceptJoinRequest = async (req, res) => {
             return res.status(404).json({ message: 'User or Group not found' });
         }
 
-        const userRequest = user.groups.find(group => group.groupId.toString() === groupId);
+        const userRequest = user.groups.find((group) => group.groupId.toString() === groupId);
         if (!userRequest || userRequest.status !== 'pending') {
             return res.status(400).json({ message: 'No pending request found for this group' });
         }
 
         userRequest.status = 'approved';
+
+        const lectures = await Lectures.find({ group_id: groupId });
+        for (const lecture of lectures) {
+            const alreadyAttended = user.attendance.some(
+                (att) => att.lectureId.toString() === lecture._id.toString()
+            );
+            if (!alreadyAttended) {
+                user.attendance.push({
+                    lectureId: lecture._id,
+                    attendanceStatus: 'absent',
+                    attendedAt: null,
+                });
+                user.totalAbsent += 1;
+            }
+        }
+
         await user.save();
 
         group.members.push({ user_id: user._id });
@@ -856,23 +1017,22 @@ exports.acceptJoinRequest = async (req, res) => {
             to: user.email,
             subject: '🎉 Your Join Request Has Been Approved!',
             html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                <header style="background-color: #4CAF50; padding: 20px; text-align: center; color: white;">
-                  <h1 style="margin: 0; font-size: 24px;">Welcome to the ${group.title} Group!</h1>
-                </header>
-                <div style="padding: 20px; background-color: #f9f9f9;">
-                  <h2 style="font-size: 20px; color: #333;">Hello, ${user.name}!</h2>
-                  <p style="color: #555;">We are pleased to inform you that your request to join the group <strong>"${group.title}"</strong> has been approved. You are now part of our amazing community!</p>
-                  <p style="color: #555;">We are excited to have you on board and look forward to your contributions. If you have any questions or need help, feel free to reach out to us.</p>
-                  <p style="margin-top: 20px; color: #555;">Best regards,<br>The Team</p>
-                </div>
-                <footer style="background-color: #f1f1f1; padding: 10px; text-align: center; color: #777; font-size: 14px;">
-                <p style="margin: 0;">Need help? Contact us at <a href="mailto:codeeagles653@gmail.com" style="color:  #4CAF50; text-decoration: none;">codeeagles653@gmail.com</a></p>
-                </footer>
-              </div>
-            `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+            <header style="background-color: #4CAF50; padding: 20px; text-align: center; color: white;">
+              <h1 style="margin: 0; font-size: 24px;">Welcome to the ${group.title} Group!</h1>
+            </header>
+            <div style="padding: 20px; background-color: #f9f9f9;">
+              <h2 style="font-size: 20px; color: #333;">Hello, ${user.name}!</h2>
+              <p style="color: #555;">We are pleased to inform you that your request to join the group <strong>"${group.title}"</strong> has been approved. You are now part of our amazing community!</p>
+              <p style="color: #555;">We are excited to have you on board and look forward to your contributions. If you have any questions or need help, feel free to reach out to us.</p>
+              <p style="margin-top: 20px; color: #555;">Best regards,<br>The Team</p>
+            </div>
+            <footer style="background-color: #f1f1f1; padding: 10px; text-align: center; color: #777; font-size: 14px;">
+              <p style="margin: 0;">Need help? Contact us at <a href="mailto:codeeagles653@gmail.com" style="color: #4CAF50; text-decoration: none;">codeeagles653@gmail.com</a></p>
+            </footer>
+          </div>
+        `,
         };
-
 
         transporter.sendMail(mailOptions, (error, info) => {
             if (error) {
@@ -882,7 +1042,6 @@ exports.acceptJoinRequest = async (req, res) => {
             console.log('Email sent:', info.response);
             return res.status(200).json({ message: 'Join request approved successfully' });
         });
-
     } catch (error) {
         console.error('Error in accepting join request:', error);
         return res.status(500).json({ message: 'Server error' });
