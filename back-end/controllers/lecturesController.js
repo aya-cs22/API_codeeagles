@@ -924,6 +924,7 @@ exports.getAllUserSubmissionsForTask = async (req, res) => {
       submissionId: submission._id,
       userId: submission.userId,
       userName: submission.userId.name,
+      serEmail: submission.userId.email,
       submissionLink: submission.submissionLink,
       submittedAt: submission.submittedAt,
       submittedOnTime: submission.submittedOnTime,
