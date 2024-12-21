@@ -118,7 +118,9 @@ const userSchema = new mongoose.Schema({
     },
   ],
 
-
+  message: {
+    type: String,
+  },
   created_at: {
     type: Date,
     default: Date.now,
