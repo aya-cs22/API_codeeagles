@@ -725,22 +725,23 @@ exports.joinGroupRequest = async (req, res) => {
         if (!group) {
             return res.status(404).json({ message: 'Group not found' });
         }
-
         const existingRequest = user.groups.find(group => group.groupId.toString() === groupId);
-        if (existingRequest && (existingRequest.status === 'pending' || existingRequest.status === 'rejected')) {
-
-            existingRequest.status = 'pending';
-            await user.save();
-        } else if (existingRequest && existingRequest.status === 'approved') {
-            return res.status(400).json({ message: 'You are already a member of this group.' });
-        } else {
-            const joinRequest = {
-                groupId: groupId,
-                status: 'pending',
-            };
-            user.groups.push(joinRequest);
-            await user.save();
+        if (existingRequest) {
+            if (existingRequest.status === 'pending') {
+                return res.status(400).json({ message: 'You already have a pending request for this group.' });
+            } else if (existingRequest.status === 'approved') {
+                return res.status(400).json({ message: 'You are already a member of this group.' });
+            } else if (existingRequest.status === 'rejected') {
+                return res.status(400).json({ message: 'Your request to join this group has been rejected.' });
+            }
         }
+
+        const joinRequest = {
+            groupId: groupId,
+            status: 'pending',
+        };
+        user.groups.push(joinRequest);
+        await user.save();
 
         const adminEmail = process.env.ADMIN_EMAIL;
         const mailOptions = {
