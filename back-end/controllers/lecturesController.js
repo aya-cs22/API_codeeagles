@@ -909,6 +909,7 @@ exports.getAllUserSubmissionsForTask = async (req, res) => {
     const taskSubmissions = task.submissions.map(submission => ({
       submissionId: submission._id,
       userId: submission.userId,
+      userName: submission.userId.name,
       submissionLink: submission.submissionLink,
       submittedAt: submission.submittedAt,
       submittedOnTime: submission.submittedOnTime,
