@@ -920,18 +920,21 @@ exports.getAllUserSubmissionsForTask = async (req, res) => {
       return res.status(404).json({ message: 'Task not found' });
     }
 
-    const taskSubmissions = task.submissions.map(submission => ({
-      submissionId: submission._id,
-      userId: submission.userId,
-      userName: submission.userId.name,
-      serEmail: submission.userId.email,
-      submissionLink: submission.submissionLink,
-      submittedAt: submission.submittedAt,
-      submittedOnTime: submission.submittedOnTime,
-      score: submission.score,
-      feedback: submission.feedback,
-    }));
-
+    const taskSubmissions = await Promise.all(
+      task.submissions.map(async (submission) => {
+        const user = await User.findById(submission.userId);
+        return {
+          submissionId: submission._id,
+          userId: submission.userId,
+          userName: user.name,
+          submissionLink: submission.submissionLink,
+          submittedAt: submission.submittedAt,
+          submittedOnTime: submission.submittedOnTime,
+          score: submission.score,
+          feedback: submission.feedback,
+        };
+      })
+    );
     return res.status(200).json({
       taskId: task._id,
       taskTitle: task.description_task,
