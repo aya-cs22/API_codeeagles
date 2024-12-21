@@ -768,19 +768,32 @@ exports.submitTask = async (req, res) => {
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
+
     if (currentDate > new Date(task.end_date)) {
       return res.status(403).json({ message: 'Task submission is no longer allowed as the deadline has passed' });
     }
 
-    task.submissions.push({
-      userId: user.id,
-      submissionLink: submissionLink,
-      submittedAt: currentDate,
-      submittedOnTime: currentDate <= new Date(task.end_date),
-      score: null,
-      feedback: null,
-    });
+    // Find the user's submission in the task
+    const existingSubmission = task.submissions.find(submission => submission.userId.toString() === user.id);
 
+    if (existingSubmission) {
+      // Update existing submission
+      existingSubmission.submissionLink = submissionLink;
+      existingSubmission.submittedAt = currentDate;
+      existingSubmission.submittedOnTime = currentDate <= new Date(task.end_date);
+    } else {
+      // Add a new submission if none exists
+      task.submissions.push({
+        userId: user.id,
+        submissionLink: submissionLink,
+        submittedAt: currentDate,
+        submittedOnTime: currentDate <= new Date(task.end_date),
+        score: null,
+        feedback: null,
+      });
+    }
+
+    // Update or add task in user's record
     const userTask = user.tasks.find(t => t.lectureId.toString() === lectureId && t.taskId.toString() === taskId);
     if (userTask) {
       userTask.submissionLink = submissionLink;
@@ -809,6 +822,7 @@ exports.submitTask = async (req, res) => {
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 
 
