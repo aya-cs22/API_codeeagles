@@ -32,12 +32,12 @@ if (process.env.NODE_ENV === 'development') {
 const userRoutes = require('./routes/userRoutes.js');
 const groupsRoutes = require('./routes/groupsRoutes.js');
 const lectureRoutes = require('./routes/lectureRoutes.js');
-const contactusRoutes = require('./routes/ContactMessageRoutes.js');
+// const contactusRoutes = require('./routes/ContactMessageRoutes.js');
 
 app.use('/api/users', userRoutes);
 app.use('/api/groups', groupsRoutes);
 app.use('/api/lectures', lectureRoutes);
-app.use('/api/contact', contactusRoutes);
+// app.use('/api/contact', contactusRoutes);
 
 
 // Error handling middleware
