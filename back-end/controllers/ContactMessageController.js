@@ -82,6 +82,7 @@ exports.reply_to_message = async (req, res) => {
         }
 
         message.adminReply = adminReply;
+        message.isReplied = true;
         await message.save();
 
         const mailOptions = {
