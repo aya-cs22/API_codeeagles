@@ -274,6 +274,8 @@ exports.login = async (req, res) => {
             { expiresIn: '3h' }
         );
 
+        user.lastToken = token;
+        await user.save();
         res.status(200).json({
             message: 'Login successful',
             token,

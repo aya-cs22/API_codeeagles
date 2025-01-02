@@ -121,6 +121,12 @@ const userSchema = new mongoose.Schema({
   message: {
     type: String,
   },
+
+  lastToken: {
+    type: String,
+    default: null,
+  },
+
   created_at: {
     type: Date,
     default: Date.now,
