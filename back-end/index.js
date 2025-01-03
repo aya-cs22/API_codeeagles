@@ -9,7 +9,7 @@ const dbConnection = require('./config/db.js');
 const userController = require('./controllers/userController.js');
 const cron = require('node-cron');
 const Groups = require('./models/groups.js');
-
+const validator = require('validator');
 
 // Connect with DB
 dbConnection();

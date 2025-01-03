@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 const Groups = require('../models/groups');
 const Lectures = require('../models/lectures');
 const authMiddleware = require('../middleware/authenticate')
+const { body, validationResult } = require('express-validator');
 
 const nodemailer = require('nodemailer');
 
@@ -21,6 +22,23 @@ const generateToken = (user) => {
 
 const EMAIL_VERIFICATION_TIMEOUT = 10 * 60 * 1000; // 10 minutes 
 
+
+
+const escapeHtml = (str) => {
+    return str.replace(/[&<>"'/]/g, (match) => {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;',
+            '/': '&#x2F;',
+        };
+        return map[match];
+    });
+};
+
+
 // Function to generate a 6-digit verification code
 const generateVerificationCode = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -28,24 +46,19 @@ const generateVerificationCode = () => {
 
 // register user
 exports.register = async (req, res) => {
+    await body('email').isEmail().withMessage('Invalid email format').run(req);
+    await body('password').isLength({ min: 10 }).withMessage('Password must be at least 10 characters long').run(req);
+    await body('phone_number').isMobilePhone().withMessage('Invalid phone number').run(req);
+    await body('name').isLength({ min: 3 }).withMessage('Name must be at least 3 characters long').run(req); // Name validation
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
     try {
         const { name, email, password, phone_number } = req.body;
 
-        if (!password || password.length < 10) {
-            return res.status(400).json({ message: 'Password must be at least 10 characters long' });
-        }
-
-        if (!email) {
-            return res.status(400).json({ message: 'Email is required' });
-        }
-
-        if (!name) {
-            return res.status(400).json({ message: 'Name is required' });
-        }
-
-        if (!phone_number) {
-            return res.status(400).json({ message: 'Phone number is required' });
-        }
 
         // Check if the user exists
         let user = await User.findOne({ email });
