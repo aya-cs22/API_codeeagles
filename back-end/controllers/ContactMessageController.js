@@ -81,11 +81,8 @@ exports.reply_to_message = async (req, res) => {
             return res.status(404).json({ message: 'Message not found' });
         }
 
-        message.adminReplies.push({ reply: adminReply });
-
-        if (message.adminReplies.length > 0) {
-            message.isReplied = true;
-        }
+        message.adminReply = adminReply;
+        message.isReplied = true;
         await message.save();
 
         const mailOptions = {
