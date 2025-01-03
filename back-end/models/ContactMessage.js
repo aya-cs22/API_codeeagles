@@ -14,10 +14,16 @@ const contactMessageSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    adminReply: {
-        type: String,
-        default: '',
-    },
+    adminReplies: [{
+        reply: {
+            type: String,
+            required: true,
+        },
+        date: {
+            type: Date,
+            default: Date.now,
+        },
+    }],
     isReplied: {
         type: Boolean,
         default: false,
