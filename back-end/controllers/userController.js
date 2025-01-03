@@ -57,8 +57,12 @@ exports.register = async (req, res) => {
     }
 
     try {
-        const { name, email, password, phone_number } = req.body;
+        let { name, email, password, phone_number } = req.body;
 
+        name = escapeHtml(name);
+        email = escapeHtml(email);
+        phone_number = escapeHtml(phone_number);
+        password = escapeHtml(password);  // ولكن تأكد من تشفير كلمة المرور لاحقًا.
 
         // Check if the user exists
         let user = await User.findOne({ email });
