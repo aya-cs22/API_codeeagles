@@ -29,7 +29,18 @@ const groupsSchema = new mongoose.Schema({
     user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
   }],
 
-
+  allowedEmails: {
+    type: [String],
+    default: [],
+    validate: {
+      validator: function (emails) {
+        return emails.every(email =>
+          /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)
+        );
+      },
+      message: 'Invalid email format in allowedEmails'
+    }
+  },
   created_at: {
     type: Date,
     default: Date.now,

@@ -796,6 +796,180 @@ exports.deleteFeedback = async (req, res) => {
 
 
 
+exports.addAllowedEmails = async (req, res) => {
+    try {
+
+        const { groupId, allowedEmails } = req.body;
+        const adminId = req.user.id;
+
+        const adminUser = await User.findById(adminId);
+        if (adminUser.role !== 'admin') {
+            return res.status(403).json({ message: 'Access denied: Only admins can perform this action' });
+        }
+
+        const group = await Groups.findById(groupId);
+        if (!group) {
+            return res.status(404).json({ message: 'Group not found' });
+        }
+
+        group.allowedEmails = group.allowedEmails || [];
+
+        for (const email of allowedEmails) {
+            const userExists = await User.findOne({ email });
+            if (!userExists) {
+                return res.status(400).json({ message: `Email ${email} does not exist in the database` });
+            }
+        }
+
+        const uniqueEmailsToAdd = allowedEmails.filter(email => !group.allowedEmails.includes(email));
+        if (uniqueEmailsToAdd.length === 0) {
+            return res.status(400).json({ message: 'All emails are already added to this group' });
+        }
+
+        group.allowedEmails.push(...uniqueEmailsToAdd);
+        await group.save();
+
+        return res.status(200).json({
+            message: 'Allowed emails added successfully',
+
+            allowedEmails: group.allowedEmails
+        });
+    } catch (error) {
+        console.error('Error adding allowed emails:', error);
+        return res.status(500).json({ message: 'Server error' });
+    }
+};
+
+
+
+
+exports.getAllowedEmails = async (req, res) => {
+    try {
+        console.log('Request User:', req.user);
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Access denied: Only admins can getAllowedEmails' });
+        }
+
+        const { groupId } = req.params;
+
+        const group = await Groups.findById(groupId).select('title type_course location start_date allowedEmails');
+        if (!group) {
+            return res.status(404).json({ message: 'Group not found' });
+        }
+
+        console.log('Allowed Emails:', group.allowedEmails);
+
+        let users = [];
+        if (group.allowedEmails && group.allowedEmails.length > 0) {
+            users = await User.find({
+                email: { $in: group.allowedEmails },
+
+            })
+                .select('name email phone_number');
+        }
+
+        const response = {
+            groupId: groupId,
+            title: group.title,
+            type_course: group.type_course,
+            location: group.location,
+            start_date: group.start_date,
+            users
+        };
+
+        return res.status(200).json({
+            message: 'Allowed emails and group details retrieved successfully',
+            group: response
+        });
+    } catch (error) {
+        console.error('Error retrieving allowed emails and group details:', error);
+        return res.status(500).json({ message: 'Server error' });
+    }
+};
+
+
+exports.updateAllowedEmails = async (req, res) => {
+    try {
+        const { groupId, allowedEmails } = req.body;
+        const adminId = req.user.id;
+
+        // التحقق إذا كان allowedEmails عبارة عن مصفوفة
+        if (!Array.isArray(allowedEmails)) {
+            return res.status(400).json({ message: 'allowedEmails should be an array' });
+        }
+
+        // التحقق إذا كان المستخدم هو admin
+        const adminUser = await User.findById(adminId);
+        if (adminUser.role !== 'admin') {
+            return res.status(403).json({ message: 'Access denied: Only admins can perform this action' });
+        }
+
+        // العثور على الجروب
+        const group = await Groups.findById(groupId);
+        if (!group) {
+            return res.status(404).json({ message: 'Group not found' });
+        }
+
+        // التحقق من وجود الإيميلات في قاعدة البيانات وإزالتها من الجروبات الأخرى
+        for (const email of allowedEmails) {
+            const userExists = await User.findOne({ email });
+            if (!userExists) {
+                return res.status(400).json({ message: `Email ${email} does not exist in the database` });
+            }
+
+            // إزالة الإيميل من الجروبات الأخرى
+            const oldGroup = await Groups.findOne({ allowedEmails: email });
+            if (oldGroup && oldGroup._id.toString() !== groupId) {
+                oldGroup.allowedEmails = oldGroup.allowedEmails.filter(existingEmail => existingEmail !== email);
+                await oldGroup.save();
+            }
+        }
+
+        // تحديث allowedEmails في الجروب
+        group.allowedEmails = allowedEmails;
+        await group.save();
+
+        return res.status(200).json({
+            message: 'Allowed emails updated successfully',
+            allowedEmails: group.allowedEmails
+        });
+    } catch (error) {
+        console.error('Error updating allowed emails:', error);
+        return res.status(500).json({ message: 'Server error' });
+    }
+};
+
+
+exports.removeAllowedEmail = async (req, res) => {
+    try {
+        const { groupId, email } = req.body;
+        const adminId = req.user.id;
+
+        const adminUser = await User.findById(adminId);
+        if (adminUser.role !== 'admin') {
+            return res.status(403).json({ message: 'Access denied: Only admins can perform this action' });
+        }
+
+        const group = await Groups.findById(groupId);
+        if (!group) {
+            return res.status(404).json({ message: 'Group not found' });
+        }
+
+        const emailIndex = group.allowedEmails.indexOf(email);
+        if (emailIndex === -1) {
+            return res.status(400).json({ message: 'Email not found in allowedEmails' });
+        }
+
+        group.allowedEmails.splice(emailIndex, 1);
+        await group.save();
+
+        return res.status(200).json({ message: 'Email removed successfully', allowedEmails: group.allowedEmails });
+    } catch (error) {
+        console.error('Error removing allowed email:', error);
+        return res.status(500).json({ message: 'Server error' });
+    }
+};
+
 
 
 
@@ -811,7 +985,6 @@ exports.joinGroupRequest = async (req, res) => {
         }
 
         const user = await User.findById(userId);
-
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -820,64 +993,102 @@ exports.joinGroupRequest = async (req, res) => {
         if (!group) {
             return res.status(404).json({ message: 'Group not found' });
         }
-        const existingRequest = user.groups.find(group => group.groupId.toString() === groupId);
-        if (existingRequest) {
-            if (existingRequest.status === 'pending') {
-                return res.status(400).json({ message: 'You already have a pending request for this group.' });
-            } else if (existingRequest.status === 'approved') {
+
+        if (group.allowedEmails && group.allowedEmails.includes(user.email)) {
+            const existingGroup = user.groups.find(group => group.groupId.toString() === groupId);
+            if (existingGroup) {
                 return res.status(400).json({ message: 'You are already a member of this group.' });
-            } else if (existingRequest.status === 'rejected') {
-                return res.status(400).json({ message: 'Your request to join this group has been rejected.' });
             }
+
+            const joinRequest = {
+                groupId: groupId,
+                status: 'approved',
+            };
+            user.groups.push(joinRequest);
+
+            const lectures = await Lectures.find({ group_id: groupId });
+            for (const lecture of lectures) {
+                const alreadyAttended = user.attendance.some(
+                    (att) => att.lectureId.toString() === lecture._id.toString()
+                );
+                if (!alreadyAttended) {
+                    user.attendance.push({
+                        lectureId: lecture._id,
+                        attendanceStatus: 'absent',
+                        attendedAt: null,
+                    });
+                    user.totalAbsent += 1;
+                }
+            }
+
+            await user.save();
+
+            group.members.push({ user_id: user._id });
+
+            group.allowedEmails = group.allowedEmails.filter(email => email !== user.email);
+            await group.save();
+
+            return res.status(200).json({ message: 'You have been added to the group directly.' });
+        } else {
+            const existingRequest = user.groups.find(group => group.groupId.toString() === groupId);
+            if (existingRequest) {
+                if (existingRequest.status === 'pending') {
+                    return res.status(400).json({ message: 'You already have a pending request for this group.' });
+                } else if (existingRequest.status === 'approved') {
+                    return res.status(400).json({ message: 'You are already a member of this group.' });
+                } else if (existingRequest.status === 'rejected') {
+                    return res.status(400).json({ message: 'Your request to join this group has been rejected.' });
+                }
+            }
+
+            const joinRequest = {
+                groupId: groupId,
+                status: 'pending',
+            };
+            user.groups.push(joinRequest);
+            await user.save();
+
+            const adminEmail = process.env.ADMIN_EMAIL;
+            const mailOptions = {
+                from: user.email,
+                to: adminEmail,
+                subject: 'New Join Request',
+                html: `
+                    <p>Hello Admin,</p>
+                    <p>The user <strong>${user.name}</strong> (<a href="mailto:${user.email}">${user.email}</a>) has requested to join the group "<strong>${group.title}</strong>".</p>
+                    <p>Please review the request and take appropriate action:</p>
+                    <div style="display: flex; gap: 10px;">
+                        <a href="https://api-codeeagles-cpq8.vercel.app/api/users/accept-join-request" 
+                            style="padding: 10px 15px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">
+                            Accept
+                        </a>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <a href="https://api-codeeagles-cpq8.vercel.app/api/users/reject-join-request" 
+                            style="padding: 10px 15px; background-color: #FF6347; color: white; text-decoration: none; border-radius: 5px;">
+                            Reject
+                        </a>
+                    </div>
+                `
+            };
+
+            transporter.sendMail(mailOptions, (error, data) => {
+                if (error) {
+                    console.error('Error sending email:', error);
+                    return res.status(500).json({ message: 'Error sending email' });
+                }
+                console.log('Email sent:', data.response);
+            });
+
+            return res.status(200).json({ message: 'Join request sent successfully.' });
         }
-
-        const joinRequest = {
-            groupId: groupId,
-            status: 'pending',
-        };
-        user.groups.push(joinRequest);
-        await user.save();
-
-        const adminEmail = process.env.ADMIN_EMAIL;
-        const mailOptions = {
-            from: user.email,
-            to: adminEmail,
-            subject: 'New Join Request',
-            html: `
-                <p>Hello Admin,</p>
-                <p>The user <strong>${user.name}</strong> (<a href="mailto:${user.email}">${user.email}</a>) has requested to join the group "<strong>${group.title}</strong>".</p>
-                <p>Please review the request and take appropriate action:</p>
-                <div style="display: flex; gap: 10px;">
-                    <a href="https://api-codeeagles-cpq8.vercel.app/api/users/accept-join-request" 
-                        style="padding: 10px 15px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;"
-                        onclick="fetch('https://api-codeeagles-cpq8.vercel.app/api/users/accept-join-request', { method: 'POST', body: JSON.stringify({ groupId: '${groupId}', userId: '${userId}' }), headers: { 'Content-Type': 'application/json' }});">
-                        Accept
-                    </a>
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <a href="https://api-codeeagles-cpq8.vercel.app/api/users/reject-join-request" 
-                        style="padding: 10px 15px; background-color: #FF6347; color: white; text-decoration: none; border-radius: 5px;"
-                        onclick="fetch('https://api-codeeagles-cpq8.vercel.app/api/users/reject-join-request', { method: 'POST', body: JSON.stringify({ groupId: '${groupId}', userId: '${userId}' }), headers: { 'Content-Type': 'application/json' }});">
-                        Reject
-                    </a>
-                </div>
-            `
-        };;
-
-        transporter.sendMail(mailOptions, (error, data) => {
-            if (error) {
-                console.error('Error sending email:', error);
-                return res.status(500).json({ message: 'Error sending email' });
-            }
-            console.log('Email sent:', data.response);
-        });
-
-        return res.status(200).json({ message: 'Join request sent successfully.' });
     } catch (error) {
         console.error('Error sending join request:', error);
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+
 
 
 
@@ -917,72 +1128,6 @@ exports.getPendingJoinRequestsByGroup = async (req, res) => {
         return res.status(500).json({ message: 'Server error' });
     }
 };
-
-// exports.acceptJoinRequest = async (req, res) => {
-//     try {
-//         const { groupId, userId } = req.body;
-//         const adminId = req.user.id;
-
-//         const adminUser = await User.findById(adminId);
-//         if (adminUser.role !== 'admin') {
-//             return res.status(403).json({ message: 'You do not have permission to perform this action' });
-//         }
-
-//         const user = await User.findById(userId);
-//         const group = await Groups.findById(groupId);
-
-//         if (!user || !group) {
-//             return res.status(404).json({ message: 'User or Group not found' });
-//         }
-
-//         const userRequest = user.groups.find(group => group.groupId.toString() === groupId);
-//         if (!userRequest || userRequest.status !== 'pending') {
-//             return res.status(400).json({ message: 'No pending request found for this group' });
-//         }
-
-//         userRequest.status = 'approved';
-//         await user.save();
-
-//         group.members.push({ user_id: user._id });
-//         await group.save();
-
-//         const mailOptions = {
-//             from: process.env.ADMIN_EMAIL,
-//             to: user.email,
-//             subject: '🎉 Your Join Request Has Been Approved!',
-//             html: `
-//               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-//                 <header style="background-color: #4CAF50; padding: 20px; text-align: center; color: white;">
-//                   <h1 style="margin: 0; font-size: 24px;">Welcome to the ${group.title} Group!</h1>
-//                 </header>
-//                 <div style="padding: 20px; background-color: #f9f9f9;">
-//                   <h2 style="font-size: 20px; color: #333;">Hello, ${user.name}!</h2>
-//                   <p style="color: #555;">We are pleased to inform you that your request to join the group <strong>"${group.title}"</strong> has been approved. You are now part of our amazing community!</p>
-//                   <p style="color: #555;">We are excited to have you on board and look forward to your contributions. If you have any questions or need help, feel free to reach out to us.</p>
-//                   <p style="margin-top: 20px; color: #555;">Best regards,<br>The Team</p>
-//                 </div>
-//                 <footer style="background-color: #f1f1f1; padding: 10px; text-align: center; color: #777; font-size: 14px;">
-//                 <p style="margin: 0;">Need help? Contact us at <a href="mailto:codeeagles653@gmail.com" style="color:  #4CAF50; text-decoration: none;">codeeagles653@gmail.com</a></p>
-//                 </footer>
-//               </div>
-//             `
-//         };
-
-
-//         transporter.sendMail(mailOptions, (error, info) => {
-//             if (error) {
-//                 console.error('Error sending email:', error);
-//                 return res.status(500).json({ message: 'Error sending email' });
-//             }
-//             console.log('Email sent:', info.response);
-//             return res.status(200).json({ message: 'Join request approved successfully' });
-//         });
-
-//     } catch (error) {
-//         console.error('Error in accepting join request:', error);
-//         return res.status(500).json({ message: 'Server error' });
-//     }
-// };
 
 
 

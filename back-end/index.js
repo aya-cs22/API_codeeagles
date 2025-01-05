@@ -4,6 +4,7 @@ const morgan = require('morgan');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
+const xss = require('xss');
 dotenv.config({ path: 'config.env' });
 const dbConnection = require('./config/db.js');
 const userController = require('./controllers/userController.js');
@@ -18,7 +19,9 @@ dbConnection();
 const app = express();
 
 // middlewares
-app.use(cors());
+app.use(cors({
+    origin: 'https://code-eagles.vercel.app'
+}));
 app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

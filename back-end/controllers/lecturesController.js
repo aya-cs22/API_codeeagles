@@ -1,3 +1,5 @@
+const validator = require('validator');
+const xss = require('xss');
 const Lectures = require('../models/lectures');
 const Groups = require('../models/groups');
 
@@ -750,7 +752,7 @@ exports.getAllTasksByLectureId = async (req, res) => {
 exports.submitTask = async (req, res) => {
   try {
     const { lectureId, taskId } = req.params;
-    const { submissionLink } = req.body;
+    let { submissionLink } = req.body;
     const currentDate = Date.now();
 
     const user = await User.findById(req.user.id);
@@ -773,16 +775,30 @@ exports.submitTask = async (req, res) => {
       return res.status(403).json({ message: 'Task submission is no longer allowed as the deadline has passed' });
     }
 
-    // Find the user's submission in the task
+    if (!validator.isURL(submissionLink)) {
+      return res.status(400).json({ message: 'Invalid URL format' });
+    }
+    submissionLink = xss(submissionLink);
+    const allowedDomain = 'drive.google.com';
+    const url = new URL(submissionLink);
+
+    if (url.hostname !== allowedDomain) {
+      return res.status(400).json({ message: 'Only Google Drive links are allowed' });
+    }
+
+    if (!submissionLink.startsWith('https://')) {
+      return res.status(400).json({ message: 'Only HTTPS links are allowed' });
+    }
+
+
+
     const existingSubmission = task.submissions.find(submission => submission.userId.toString() === user.id);
 
     if (existingSubmission) {
-      // Update existing submission
       existingSubmission.submissionLink = submissionLink;
       existingSubmission.submittedAt = currentDate;
       existingSubmission.submittedOnTime = currentDate <= new Date(task.end_date);
     } else {
-      // Add a new submission if none exists
       task.submissions.push({
         userId: user.id,
         submissionLink: submissionLink,
