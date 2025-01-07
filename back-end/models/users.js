@@ -126,6 +126,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  tokenVersion: {
+    type: Number,
+    default: 0,
+  },
 
   created_at: {
     type: Date,
@@ -144,6 +148,7 @@ userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   // Encrypt the password before saving
   this.password = await bcrypt.hash(this.password, 10);
+  this.tokenVersion += 1;
   this.updated_at = Date.now();
   next();
 });

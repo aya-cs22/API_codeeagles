@@ -256,6 +256,7 @@ exports.resetPassword = async (req, res) => {
         user.password = newPassword;
         user.resetPasswordToken = undefined;
         user.resetPasswordExpiry = undefined;
+        user.tokenVersion += 1;
         await user.save();
 
         res.status(200).json({ message: 'Password has been reset successfully' });
@@ -285,7 +286,7 @@ exports.login = async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: user._id, role: user.role },
+            { id: user._id, role: user.role, tokenVersion: user.tokenVersion },
             process.env.JWT_SECRET,
             { expiresIn: '3h' }
         );
