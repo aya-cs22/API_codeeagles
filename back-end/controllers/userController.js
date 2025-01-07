@@ -127,10 +127,12 @@ exports.register = async (req, res) => {
             emailVerificationCode: generateVerificationCode(),
             verificationCodeExpiry: new Date(Date.now() + EMAIL_VERIFICATION_TIMEOUT),
         });
+        const token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '1m' });
+        console.log(token);
+        newUser.lastToken = token;
         console.log(newUser);
         await newUser.save();
-        // const token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        // console.log(token);
+
         // Send verification email
         const mailOptions = {
             from: process.env.ADMIN_EMAIL,
@@ -159,7 +161,7 @@ exports.register = async (req, res) => {
 
         await transporter.sendMail(mailOptions);
 
-        res.status(200).json({ message: 'Registration successful, please verify your email' });
+        res.status(200).json({ message: 'Registration successful, please verify your email', token });
     } catch (error) {
         console.error('Registration error:', error);
         res.status(500).json({ message: 'Server error' });
@@ -168,9 +170,19 @@ exports.register = async (req, res) => {
 
 
 
-//verify Email
+
 exports.verifyEmail = async (req, res) => {
     try {
+        const token = req.header('Authorization')?.replace('Bearer ', '');
+        if (!token) {
+            return res.status(401).json({ message: 'Access denied. No token provided.' });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id);
+        if (!user) {
+            return res.status(401).json({ message: 'User not found.' });
+        }
 
         const { email, code } = req.body;
 
@@ -178,9 +190,8 @@ exports.verifyEmail = async (req, res) => {
             return res.status(400).json({ message: 'Email and verification code are required' });
         }
 
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ message: 'User not found' });
+        if (user.email !== email) {
+            return res.status(400).json({ message: 'Email does not match the logged in user' });
         }
 
         if (!user.emailVerificationCode || user.emailVerificationCode !== code || new Date() > user.verificationCodeExpiry) {
@@ -199,48 +210,10 @@ exports.verifyEmail = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
-// exports.verifyEmail = async (req, res) => {
-//     try {
-//         // const token = req.header('Authorization')?.replace('Bearer ', '');
-//         // if (!token) {
-//         //     return res.status(401).json({ message: 'Access denied. No token provided.' });
-//         // }
-
-//         // const decoded = jwt.verify(token, process.env.JWT_SECRET);
-//         // const user = await User.findById(decoded.id);
-//         // if (!user) {
-//         //     return res.status(401).json({ message: 'User not found.' });
-//         // }
-
-//         const { email, code } = req.body;
-
-//         if (!email || !code) {
-//             return res.status(400).json({ message: 'Email and verification code are required' });
-//         }
-
-//         if (user.email !== email) {
-//             return res.status(400).json({ message: 'Email does not match the logged in user' });
-//         }
-
-//         if (!user.emailVerificationCode || user.emailVerificationCode !== code || new Date() > user.verificationCodeExpiry) {
-//             return res.status(400).json({ message: 'Invalid or expired verification code' });
-//         }
-
-//         user.isVerified = true;
-//         user.emailVerificationCode = null;
-//         user.verificationCodeExpiry = null;
-//         await user.save();
-
-//         res.status(200).json({ message: 'Email verified successfully' });
-
-//     } catch (error) {
-//         console.error('Error verifying email: ', error);
-//         res.status(500).json({ message: 'Server error' });
-//     }
-// };
 
 
 // forget password
+
 exports.forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
@@ -253,12 +226,13 @@ exports.forgotPassword = async (req, res) => {
         const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
         user.resetPasswordToken = resetCode;
         user.resetPasswordExpiry = Date.now() + 1800000; // 3 minutes
-        // const resetToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-        //     expiresIn: '15m' 
-        // });
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+            expiresIn: '10m'
+        });
 
-        // user.resetPasswordJWT = resetToken;
-        // console.log(resetToken);
+        user.resetPasswordJWT = token;
+        user.lastToken = token;
+        console.log(token);
         await user.save();
 
         const mailOptions = {
@@ -287,70 +261,27 @@ exports.forgotPassword = async (req, res) => {
         };
 
         await transporter.sendMail(mailOptions);
-        res.status(200).json({ message: 'Reset password email sent' });
+        res.status(200).json({ message: 'Reset password email sent', token });
     } catch (error) {
         console.error('Error sending reset password email:', error);
         res.status(500).json({ message: 'Server error' });
     }
 };
 
-// update password
-exports.resetPassword = async (req, res) => {
-    try {
-        const { resetCode, newPassword } = req.body;
-        if (!newPassword || newPassword.length < 10) {
-            return res.status(400).json({ message: 'New password must be at least 10 characters long' });
-        }
-        const user = await User.findOne({
-            resetPasswordToken: resetCode,
-            resetPasswordExpiry: { $gt: Date.now() }
-        });
-
-        if (!user) {
-            return res.status(400).json({ message: 'Invalid or expired code' });
-        }
-
-        user.password = newPassword;
-        user.resetPasswordToken = undefined;
-        user.resetPasswordExpiry = undefined;
-        user.tokenVersion += 1;
-        await user.save();
-
-        res.status(200).json({ message: 'Password has been reset successfully' });
-    } catch (error) {
-        console.error('Error resetting password:', error);
-        res.status(500).json({ message: 'Server error' });
-    }
-};
-
-
-
+// // update password without token
 // exports.resetPassword = async (req, res) => {
 //     try {
-
-//         const token = req.header('Authorization')?.replace('Bearer ', '');
-//         if (!token) {
-//             return res.status(401).json({ message: 'Access denied. No token provided.' });
-//         }
-
-//         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-//         const user = await User.findById(decoded.id);
-//         if (!user) {
-//             return res.status(401).json({ message: 'User not found.' });
-//         }
-
 //         const { resetCode, newPassword } = req.body;
 //         if (!newPassword || newPassword.length < 10) {
 //             return res.status(400).json({ message: 'New password must be at least 10 characters long' });
 //         }
-
-//         const validUser = await User.findOne({
+//         const user = await User.findOne({
 //             resetPasswordToken: resetCode,
 //             resetPasswordExpiry: { $gt: Date.now() }
 //         });
 
-//         if (!validUser || validUser.id !== user.id) {
-//             return res.status(400).json({ message: 'Invalid or expired code, or user mismatch' });
+//         if (!user) {
+//             return res.status(400).json({ message: 'Invalid or expired code' });
 //         }
 
 //         user.password = newPassword;
@@ -368,6 +299,49 @@ exports.resetPassword = async (req, res) => {
 
 
 
+exports.resetPassword = async (req, res) => {
+    try {
+
+        const token = req.header('Authorization')?.replace('Bearer ', '');
+        if (!token) {
+            return res.status(401).json({ message: 'Access denied. No token provided.' });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id);
+        if (!user) {
+            return res.status(401).json({ message: 'User not found.' });
+        }
+
+        const { resetCode, newPassword } = req.body;
+        if (!newPassword || newPassword.length < 10) {
+            return res.status(400).json({ message: 'New password must be at least 10 characters long' });
+        }
+
+        const validUser = await User.findOne({
+            resetPasswordToken: resetCode,
+            resetPasswordExpiry: { $gt: Date.now() }
+        });
+
+        if (!validUser || validUser.id !== user.id) {
+            return res.status(400).json({ message: 'Invalid or expired code, or user mismatch' });
+        }
+
+        user.password = newPassword;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpiry = undefined;
+        user.tokenVersion += 1;
+        await user.save();
+
+        res.status(200).json({ message: 'Password has been reset successfully' });
+    } catch (error) {
+        console.error('Error resetting password:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+
+
 
 exports.login = async (req, res) => {
     const { email, password } = req.body;
@@ -378,9 +352,7 @@ exports.login = async (req, res) => {
         if (!user) {
             return res.status(400).json({ message: 'Email not found. Please register first.' });
         }
-        if (user.device_id !== device_id) {
-            return res.status(400).json({ message: 'You can only login from the device you registered on' });
-        }
+
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).json({ message: 'Invalid email or password' });

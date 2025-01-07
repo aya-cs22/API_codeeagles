@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/users');
 const mongoose = require('mongoose'); // لاستعمال ObjectId
+
 const authenticate = async (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
@@ -17,8 +18,19 @@ const authenticate = async (req, res, next) => {
       return res.status(401).json({ message: 'User not found.' });
     }
 
+    // التحقق من صلاحية lastToken
+    if (user.lastToken && user.lastToken !== token) {
+      return res.status(401).json({ message: 'Token has expired. Please log in again.' });
+    }
+
+    // التحقق من أن tokenVersion متطابق
     if (decoded.tokenVersion !== user.tokenVersion) {
       return res.status(401).json({ message: 'Token has expired. Please log in again.' });
+    }
+
+    // التحقق من أن resetPasswordExpiry ليس قد انتهى
+    if (user.resetPasswordExpiry && Date.now() > user.resetPasswordExpiry) {
+      return res.status(401).json({ message: 'Password reset token has expired. Please request a new one.' });
     }
 
     req.user = {
@@ -32,8 +44,5 @@ const authenticate = async (req, res, next) => {
     return res.status(400).json({ message: 'Invalid token.' });
   }
 };
-
-
-
 
 module.exports = authenticate;
