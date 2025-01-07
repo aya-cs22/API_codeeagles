@@ -21,7 +21,7 @@ const generateToken = (user) => {
     );
 };
 
-const EMAIL_VERIFICATION_TIMEOUT = 5 * 60 * 1000; // 10 minutes 
+const EMAIL_VERIFICATION_TIMEOUT = 10 * 60 * 1000; // 10 minutes 
 
 
 
@@ -70,13 +70,15 @@ exports.register = async (req, res) => {
         password = escapeHtml(password);
         // Check if the user exists
         let user = await User.findOne({ email });
-
+        let token;
         if (user) {
             if (user.isVerified) {
                 return res.status(400).json({ message: 'User already exists and is verified' });
             } else {
                 user.emailVerificationCode = generateVerificationCode();
                 user.verificationCodeExpiry = new Date(Date.now() + EMAIL_VERIFICATION_TIMEOUT);
+                token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '10m' });
+                user.lastToken = token;
                 await user.save();
 
                 const mailOptions = {
@@ -105,7 +107,7 @@ exports.register = async (req, res) => {
                 };
 
                 await transporter.sendMail(mailOptions);
-                return res.status(200).json({ message: 'Verification code resent. Please verify your email.' });
+                return res.status(200).json({ message: 'Verification code resent. Please verify your email.', token });
             }
         }
 
@@ -126,7 +128,8 @@ exports.register = async (req, res) => {
             emailVerificationCode: generateVerificationCode(),
             verificationCodeExpiry: new Date(Date.now() + EMAIL_VERIFICATION_TIMEOUT),
         });
-        const token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '5m' });
+        token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '10m' });
+        newUser.lastToken = token;
         console.log(token);
         newUser.lastToken = token;
         console.log(newUser);
@@ -205,6 +208,11 @@ exports.verifyEmail = async (req, res) => {
         res.status(200).json({ message: 'Email verified successfully' });
 
     } catch (error) {
+        if (error.name === 'TokenExpiredError') {
+            return res.status(400).json({
+                message: 'Your token has expired. Please request a new verification token.'
+            });
+        }
         console.error('Error verifying email: ', error);
         res.status(500).json({ message: 'Server error' });
     }
@@ -224,7 +232,7 @@ exports.forgotPassword = async (req, res) => {
         // Generate a 6-digit code
         const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
         user.resetPasswordToken = resetCode;
-        user.resetPasswordExpiry = Date.now() + 3000000; // 5 minutes
+        user.resetPasswordExpiry = Date.now() + 6000000; // 10 minutes
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
             expiresIn: '5m'
         });
@@ -262,6 +270,11 @@ exports.forgotPassword = async (req, res) => {
         await transporter.sendMail(mailOptions);
         res.status(200).json({ message: 'Reset password email sent', token });
     } catch (error) {
+        if (error.name === 'TokenExpiredError') {
+            return res.status(400).json({
+                message: 'Your token has expired. Please request a new verification token.'
+            });
+        }
         console.error('Error sending reset password email:', error);
         res.status(500).json({ message: 'Server error' });
     }
@@ -334,6 +347,11 @@ exports.resetPassword = async (req, res) => {
 
         res.status(200).json({ message: 'Password has been reset successfully' });
     } catch (error) {
+        if (error.name === 'TokenExpiredError') {
+            return res.status(400).json({
+                message: 'Your token has expired. Please request a new verification token.'
+            });
+        }
         console.error('Error resetting password:', error);
         res.status(500).json({ message: 'Server error' });
     }
