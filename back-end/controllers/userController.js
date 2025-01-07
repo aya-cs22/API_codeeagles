@@ -191,16 +191,16 @@ exports.register = async (req, res) => {
 // };
 exports.verifyEmail = async (req, res) => {
     try {
-        const token = req.header('Authorization')?.replace('Bearer ', '');
-        if (!token) {
-            return res.status(401).json({ message: 'Access denied. No token provided.' });
-        }
+        // const token = req.header('Authorization')?.replace('Bearer ', '');
+        // if (!token) {
+        //     return res.status(401).json({ message: 'Access denied. No token provided.' });
+        // }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.id);
-        if (!user) {
-            return res.status(401).json({ message: 'User not found.' });
-        }
+        // const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // const user = await User.findById(decoded.id);
+        // if (!user) {
+        //     return res.status(401).json({ message: 'User not found.' });
+        // }
 
         const { email, code } = req.body;
 
@@ -284,63 +284,20 @@ exports.forgotPassword = async (req, res) => {
     }
 };
 
-// // update password
-// exports.resetPassword = async (req, res) => {
-//     try {
-//         const { resetCode, newPassword } = req.body;
-//         if (!newPassword || newPassword.length < 10) {
-//             return res.status(400).json({ message: 'New password must be at least 10 characters long' });
-//         }
-//         const user = await User.findOne({
-//             resetPasswordToken: resetCode,
-//             resetPasswordExpiry: { $gt: Date.now() }
-//         });
-
-//         if (!user) {
-//             return res.status(400).json({ message: 'Invalid or expired code' });
-//         }
-
-//         user.password = newPassword;
-//         user.resetPasswordToken = undefined;
-//         user.resetPasswordExpiry = undefined;
-//         user.tokenVersion += 1;
-//         await user.save();
-
-//         res.status(200).json({ message: 'Password has been reset successfully' });
-//     } catch (error) {
-//         console.error('Error resetting password:', error);
-//         res.status(500).json({ message: 'Server error' });
-//     }
-// };
-
-
-
+// update password
 exports.resetPassword = async (req, res) => {
     try {
-
-        const token = req.header('Authorization')?.replace('Bearer ', '');
-        if (!token) {
-            return res.status(401).json({ message: 'Access denied. No token provided.' });
-        }
-
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.id);
-        if (!user) {
-            return res.status(401).json({ message: 'User not found.' });
-        }
-
         const { resetCode, newPassword } = req.body;
         if (!newPassword || newPassword.length < 10) {
             return res.status(400).json({ message: 'New password must be at least 10 characters long' });
         }
-
-        const validUser = await User.findOne({
+        const user = await User.findOne({
             resetPasswordToken: resetCode,
             resetPasswordExpiry: { $gt: Date.now() }
         });
 
-        if (!validUser || validUser.id !== user.id) {
-            return res.status(400).json({ message: 'Invalid or expired code, or user mismatch' });
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid or expired code' });
         }
 
         user.password = newPassword;
@@ -355,6 +312,49 @@ exports.resetPassword = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+
+
+// exports.resetPassword = async (req, res) => {
+//     try {
+
+//         const token = req.header('Authorization')?.replace('Bearer ', '');
+//         if (!token) {
+//             return res.status(401).json({ message: 'Access denied. No token provided.' });
+//         }
+
+//         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+//         const user = await User.findById(decoded.id);
+//         if (!user) {
+//             return res.status(401).json({ message: 'User not found.' });
+//         }
+
+//         const { resetCode, newPassword } = req.body;
+//         if (!newPassword || newPassword.length < 10) {
+//             return res.status(400).json({ message: 'New password must be at least 10 characters long' });
+//         }
+
+//         const validUser = await User.findOne({
+//             resetPasswordToken: resetCode,
+//             resetPasswordExpiry: { $gt: Date.now() }
+//         });
+
+//         if (!validUser || validUser.id !== user.id) {
+//             return res.status(400).json({ message: 'Invalid or expired code, or user mismatch' });
+//         }
+
+//         user.password = newPassword;
+//         user.resetPasswordToken = undefined;
+//         user.resetPasswordExpiry = undefined;
+//         user.tokenVersion += 1;
+//         await user.save();
+
+//         res.status(200).json({ message: 'Password has been reset successfully' });
+//     } catch (error) {
+//         console.error('Error resetting password:', error);
+//         res.status(500).json({ message: 'Server error' });
+//     }
+// };
 
 
 
