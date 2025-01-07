@@ -119,7 +119,8 @@ exports.register = async (req, res) => {
         });
 
         await newUser.save();
-
+        const token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        console.log(token);
         // Send verification email
         const mailOptions = {
             from: process.env.ADMIN_EMAIL,
@@ -242,6 +243,13 @@ exports.forgotPassword = async (req, res) => {
         const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
         user.resetPasswordToken = resetCode;
         user.resetPasswordExpiry = Date.now() + 1800000; // 3 minutes
+        const resetToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+            expiresIn: '15m' // Token will expire in 15 minutes
+        });
+
+        // Save reset token and expiry date in DB
+        user.resetPasswordJWT = resetToken;
+        console.log(resetToken);
         await user.save();
 
         const mailOptions = {
@@ -310,7 +318,7 @@ exports.forgotPassword = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
     try {
-        // التحقق من التوكن
+
         const token = req.header('Authorization')?.replace('Bearer ', '');
         if (!token) {
             return res.status(401).json({ message: 'Access denied. No token provided.' });
@@ -322,7 +330,6 @@ exports.resetPassword = async (req, res) => {
             return res.status(401).json({ message: 'User not found.' });
         }
 
-        // التحقق من البيانات المرسلة
         const { resetCode, newPassword } = req.body;
         if (!newPassword || newPassword.length < 10) {
             return res.status(400).json({ message: 'New password must be at least 10 characters long' });
@@ -340,7 +347,7 @@ exports.resetPassword = async (req, res) => {
         user.password = newPassword;
         user.resetPasswordToken = undefined;
         user.resetPasswordExpiry = undefined;
-        user.tokenVersion += 1; // لتحديث التوكن
+        user.tokenVersion += 1;
         await user.save();
 
         res.status(200).json({ message: 'Password has been reset successfully' });
