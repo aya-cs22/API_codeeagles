@@ -106,7 +106,8 @@ exports.register = async (req, res) => {
 
         const role = email === process.env.ADMIN_EMAIL ? 'admin' : 'user';
         // Create a new user instance
-        const ipAddress = req.ip;
+        const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.socket.remoteAddress;
+        console.log('User IP Address:', ipAddress);
         const newUser = new User({
             name,
             email,
