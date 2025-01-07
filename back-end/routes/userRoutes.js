@@ -2,11 +2,15 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const authMiddleware = require('../middleware/authenticate')
-
+const loginLimiter = rateLimit({
+    windowMs: 3 * 60 * 1000, // 15 minutes
+    max: 2, // 10 requests only
+    message: 'Too many login attempts, please try again later.'
+});
 //authentication
 router.post('/register', userController.register);
 router.post('/verify-Email', userController.verifyEmail);
-router.post('/login', userController.login);
+router.post('/login', loginLimiter, userController.login);
 router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password', userController.resetPassword);
 
