@@ -1,4 +1,3 @@
-
 const transporter = require('../config/mailConfig');
 const jwt = require('jsonwebtoken');
 const User = require('../models/users');
@@ -11,6 +10,9 @@ const authMiddleware = require('../middleware/authenticate')
 const { body, validationResult } = require('express-validator');
 const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
+// Import FingerprintJS
+const FingerprintJS = require('@fingerprintjs/fingerprintjs');
+const useragent = require('useragent');
 
 const generateToken = (user) => {
     return jwt.sign(
@@ -44,6 +46,11 @@ const generateVerificationCode = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
+
+
+
+
+
 // register user
 exports.register = async (req, res) => {
     await body('email').isEmail().withMessage('Invalid email format').run(req);
@@ -58,7 +65,6 @@ exports.register = async (req, res) => {
 
     try {
         let { name, email, password, phone_number } = req.body;
-
         name = escapeHtml(name);
         email = escapeHtml(email);
         phone_number = escapeHtml(phone_number);
@@ -105,22 +111,30 @@ exports.register = async (req, res) => {
         }
 
         const role = email === process.env.ADMIN_EMAIL ? 'admin' : 'user';
+
+
+        const userIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+
+        // استخراج معلومات المتصفح ونظام التشغيل باستخدام مكتبة useragent
+        const agent = useragent.parse(req.headers['user-agent']);
+        const userAgentInfo = {
+            browser: agent.toAgent(),
+            os: agent.os.toString(),
+        };
         // Create a new user instance
-        const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.socket.remoteAddress;
-        console.log('User IP Address:', ipAddress);
         const newUser = new User({
             name,
             email,
             phone_number,
             password,
-            ipAddress,
             isVerified: false,
             groupId: [],
+            deviceIP: userIp, // إضافة عنوان الـ IP
+            userAgent: userAgentInfo,
             emailVerificationCode: generateVerificationCode(),
-            verificationCodeExpiry: new Date(Date.now() + EMAIL_VERIFICATION_TIMEOUT)
+            verificationCodeExpiry: new Date(Date.now() + EMAIL_VERIFICATION_TIMEOUT),
         });
-        console.log(req.body);
-        console.log("ipAddress: ", ipAddress)
+        console.log(newUser);
         await newUser.save();
         // const token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
         // console.log(token);
