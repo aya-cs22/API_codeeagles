@@ -130,7 +130,9 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
-
+  ipAddress: {
+    type: String,
+  },
   created_at: {
     type: Date,
     default: Date.now,

@@ -9,7 +9,7 @@ const Groups = require('../models/groups');
 const Lectures = require('../models/lectures');
 const authMiddleware = require('../middleware/authenticate')
 const { body, validationResult } = require('express-validator');
-
+const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
 
 const generateToken = (user) => {
@@ -105,19 +105,21 @@ exports.register = async (req, res) => {
         }
 
         const role = email === process.env.ADMIN_EMAIL ? 'admin' : 'user';
-
         // Create a new user instance
+        const ipAddress = req.ip;
         const newUser = new User({
             name,
             email,
             phone_number,
             password,
+            ipAddress,
             isVerified: false,
             groupId: [],
             emailVerificationCode: generateVerificationCode(),
             verificationCodeExpiry: new Date(Date.now() + EMAIL_VERIFICATION_TIMEOUT)
         });
-
+        console.log(req.body);
+        console.log("ipAddress: ", ipAddress)
         await newUser.save();
         // const token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
         // console.log(token);
@@ -363,11 +365,14 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     try {
+
         const user = await User.findOne({ email });
         if (!user) {
             return res.status(400).json({ message: 'Email not found. Please register first.' });
         }
-
+        if (user.device_id !== device_id) {
+            return res.status(400).json({ message: 'You can only login from the device you registered on' });
+        }
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).json({ message: 'Invalid email or password' });
