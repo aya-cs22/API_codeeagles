@@ -113,7 +113,8 @@ exports.register = async (req, res) => {
         const role = email === process.env.ADMIN_EMAIL ? 'admin' : 'user';
 
 
-        const userIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+        const userIp = req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress;
+
 
         // استخراج معلومات المتصفح ونظام التشغيل باستخدام مكتبة useragent
         const agent = useragent.parse(req.headers['user-agent']);
