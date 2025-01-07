@@ -119,8 +119,8 @@ exports.register = async (req, res) => {
         });
 
         await newUser.save();
-        const token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        console.log(token);
+        // const token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        // console.log(token);
         // Send verification email
         const mailOptions = {
             from: process.env.ADMIN_EMAIL,
@@ -149,7 +149,7 @@ exports.register = async (req, res) => {
 
         await transporter.sendMail(mailOptions);
 
-        res.status(200).json({ message: 'Registration successful, please verify your email', token });
+        res.status(200).json({ message: 'Registration successful, please verify your email' });
     } catch (error) {
         console.error('Registration error:', error);
         res.status(500).json({ message: 'Server error' });
@@ -243,13 +243,12 @@ exports.forgotPassword = async (req, res) => {
         const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
         user.resetPasswordToken = resetCode;
         user.resetPasswordExpiry = Date.now() + 1800000; // 3 minutes
-        const resetToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-            expiresIn: '15m' // Token will expire in 15 minutes
-        });
+        // const resetToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+        //     expiresIn: '15m' 
+        // });
 
-        // Save reset token and expiry date in DB
-        user.resetPasswordJWT = resetToken;
-        console.log(resetToken);
+        // user.resetPasswordJWT = resetToken;
+        // console.log(resetToken);
         await user.save();
 
         const mailOptions = {
@@ -278,7 +277,7 @@ exports.forgotPassword = async (req, res) => {
         };
 
         await transporter.sendMail(mailOptions);
-        res.status(200).json({ message: 'Reset password email sent', token });
+        res.status(200).json({ message: 'Reset password email sent' });
     } catch (error) {
         console.error('Error sending reset password email:', error);
         res.status(500).json({ message: 'Server error' });
