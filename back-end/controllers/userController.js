@@ -21,7 +21,7 @@ const generateToken = (user) => {
     );
 };
 
-const EMAIL_VERIFICATION_TIMEOUT = 10 * 60 * 1000; // 10 minutes 
+const EMAIL_VERIFICATION_TIMEOUT = 5 * 60 * 1000; // 10 minutes 
 
 
 
@@ -112,7 +112,6 @@ exports.register = async (req, res) => {
         const role = email === process.env.ADMIN_EMAIL ? 'admin' : 'user';
 
 
-        const userIp = req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress;
 
 
 
@@ -127,7 +126,7 @@ exports.register = async (req, res) => {
             emailVerificationCode: generateVerificationCode(),
             verificationCodeExpiry: new Date(Date.now() + EMAIL_VERIFICATION_TIMEOUT),
         });
-        const token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '1m' });
+        const token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '5m' });
         console.log(token);
         newUser.lastToken = token;
         console.log(newUser);
@@ -225,9 +224,9 @@ exports.forgotPassword = async (req, res) => {
         // Generate a 6-digit code
         const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
         user.resetPasswordToken = resetCode;
-        user.resetPasswordExpiry = Date.now() + 1800000; // 3 minutes
+        user.resetPasswordExpiry = Date.now() + 3000000; // 5 minutes
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-            expiresIn: '10m'
+            expiresIn: '5m'
         });
 
         user.resetPasswordJWT = token;
