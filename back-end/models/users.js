@@ -131,15 +131,7 @@ const userSchema = new mongoose.Schema({
     default: 0,
   },
 
-  deviceIP: {
-    type: String,  // حقل لتخزين عنوان الـ IP
-    default: null
-  },
 
-  userAgent: {
-    type: Object,  // حقل لتخزين معلومات المتصفح
-    default: null
-  },
   created_at: {
     type: Date,
     default: Date.now,

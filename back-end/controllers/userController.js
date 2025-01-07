@@ -12,7 +12,6 @@ const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
 // Import FingerprintJS
 const FingerprintJS = require('@fingerprintjs/fingerprintjs');
-const useragent = require('useragent');
 
 const generateToken = (user) => {
     return jwt.sign(
@@ -116,12 +115,7 @@ exports.register = async (req, res) => {
         const userIp = req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress;
 
 
-        // استخراج معلومات المتصفح ونظام التشغيل باستخدام مكتبة useragent
-        const agent = useragent.parse(req.headers['user-agent']);
-        const userAgentInfo = {
-            browser: agent.toAgent(),
-            os: agent.os.toString(),
-        };
+
         // Create a new user instance
         const newUser = new User({
             name,
@@ -130,8 +124,6 @@ exports.register = async (req, res) => {
             password,
             isVerified: false,
             groupId: [],
-            deviceIP: userIp, // إضافة عنوان الـ IP
-            userAgent: userAgentInfo,
             emailVerificationCode: generateVerificationCode(),
             verificationCodeExpiry: new Date(Date.now() + EMAIL_VERIFICATION_TIMEOUT),
         });
