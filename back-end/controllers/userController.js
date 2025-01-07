@@ -157,18 +157,58 @@ exports.register = async (req, res) => {
 
 
 
-//verify Email
+// //verify Email
+// exports.verifyEmail = async (req, res) => {
+//     try {
+
+//         const { email, code } = req.body;
+
+//         if (!email || !code) {
+//             return res.status(400).json({ message: 'Email and verification code are required' });
+//         }
+
+//         const user = await User.findOne({ email });
+//         if (!user) {
+//             return res.status(400).json({ message: 'User not found' });
+//         }
+
+//         if (!user.emailVerificationCode || user.emailVerificationCode !== code || new Date() > user.verificationCodeExpiry) {
+//             return res.status(400).json({ message: 'Invalid or expired verification code' });
+//         }
+
+//         user.isVerified = true;
+//         user.emailVerificationCode = null;
+//         user.verificationCodeExpiry = null;
+//         await user.save();
+
+//         res.status(200).json({ message: 'Email verified successfully' });
+
+//     } catch (error) {
+//         console.error('Error verifying email: ', error);
+//         res.status(500).json({ message: 'Server error' });
+//     }
+// };
 exports.verifyEmail = async (req, res) => {
     try {
+        const token = req.header('Authorization')?.replace('Bearer ', '');
+        if (!token) {
+            return res.status(401).json({ message: 'Access denied. No token provided.' });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id);
+        if (!user) {
+            return res.status(401).json({ message: 'User not found.' });
+        }
+
         const { email, code } = req.body;
 
         if (!email || !code) {
             return res.status(400).json({ message: 'Email and verification code are required' });
         }
 
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ message: 'User not found' });
+        if (user.email !== email) {
+            return res.status(400).json({ message: 'Email does not match the logged in user' });
         }
 
         if (!user.emailVerificationCode || user.emailVerificationCode !== code || new Date() > user.verificationCodeExpiry) {
@@ -237,26 +277,70 @@ exports.forgotPassword = async (req, res) => {
     }
 };
 
-// update password
+// // update password
+// exports.resetPassword = async (req, res) => {
+//     try {
+//         const { resetCode, newPassword } = req.body;
+//         if (!newPassword || newPassword.length < 10) {
+//             return res.status(400).json({ message: 'New password must be at least 10 characters long' });
+//         }
+//         const user = await User.findOne({
+//             resetPasswordToken: resetCode,
+//             resetPasswordExpiry: { $gt: Date.now() }
+//         });
+
+//         if (!user) {
+//             return res.status(400).json({ message: 'Invalid or expired code' });
+//         }
+
+//         user.password = newPassword;
+//         user.resetPasswordToken = undefined;
+//         user.resetPasswordExpiry = undefined;
+//         user.tokenVersion += 1;
+//         await user.save();
+
+//         res.status(200).json({ message: 'Password has been reset successfully' });
+//     } catch (error) {
+//         console.error('Error resetting password:', error);
+//         res.status(500).json({ message: 'Server error' });
+//     }
+// };
+
+
+
 exports.resetPassword = async (req, res) => {
     try {
+        // التحقق من التوكن
+        const token = req.header('Authorization')?.replace('Bearer ', '');
+        if (!token) {
+            return res.status(401).json({ message: 'Access denied. No token provided.' });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id);
+        if (!user) {
+            return res.status(401).json({ message: 'User not found.' });
+        }
+
+        // التحقق من البيانات المرسلة
         const { resetCode, newPassword } = req.body;
         if (!newPassword || newPassword.length < 10) {
             return res.status(400).json({ message: 'New password must be at least 10 characters long' });
         }
-        const user = await User.findOne({
+
+        const validUser = await User.findOne({
             resetPasswordToken: resetCode,
             resetPasswordExpiry: { $gt: Date.now() }
         });
 
-        if (!user) {
-            return res.status(400).json({ message: 'Invalid or expired code' });
+        if (!validUser || validUser.id !== user.id) {
+            return res.status(400).json({ message: 'Invalid or expired code, or user mismatch' });
         }
 
         user.password = newPassword;
         user.resetPasswordToken = undefined;
         user.resetPasswordExpiry = undefined;
-        user.tokenVersion += 1;
+        user.tokenVersion += 1; // لتحديث التوكن
         await user.save();
 
         res.status(200).json({ message: 'Password has been reset successfully' });
@@ -265,6 +349,8 @@ exports.resetPassword = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+
 
 
 exports.login = async (req, res) => {
