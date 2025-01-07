@@ -158,49 +158,9 @@ exports.register = async (req, res) => {
 
 
 
-// //verify Email
-// exports.verifyEmail = async (req, res) => {
-//     try {
-
-//         const { email, code } = req.body;
-
-//         if (!email || !code) {
-//             return res.status(400).json({ message: 'Email and verification code are required' });
-//         }
-
-//         const user = await User.findOne({ email });
-//         if (!user) {
-//             return res.status(400).json({ message: 'User not found' });
-//         }
-
-//         if (!user.emailVerificationCode || user.emailVerificationCode !== code || new Date() > user.verificationCodeExpiry) {
-//             return res.status(400).json({ message: 'Invalid or expired verification code' });
-//         }
-
-//         user.isVerified = true;
-//         user.emailVerificationCode = null;
-//         user.verificationCodeExpiry = null;
-//         await user.save();
-
-//         res.status(200).json({ message: 'Email verified successfully' });
-
-//     } catch (error) {
-//         console.error('Error verifying email: ', error);
-//         res.status(500).json({ message: 'Server error' });
-//     }
-// };
+//verify Email
 exports.verifyEmail = async (req, res) => {
     try {
-        // const token = req.header('Authorization')?.replace('Bearer ', '');
-        // if (!token) {
-        //     return res.status(401).json({ message: 'Access denied. No token provided.' });
-        // }
-
-        // const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        // const user = await User.findById(decoded.id);
-        // if (!user) {
-        //     return res.status(401).json({ message: 'User not found.' });
-        // }
 
         const { email, code } = req.body;
 
@@ -208,8 +168,9 @@ exports.verifyEmail = async (req, res) => {
             return res.status(400).json({ message: 'Email and verification code are required' });
         }
 
-        if (user.email !== email) {
-            return res.status(400).json({ message: 'Email does not match the logged in user' });
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ message: 'User not found' });
         }
 
         if (!user.emailVerificationCode || user.emailVerificationCode !== code || new Date() > user.verificationCodeExpiry) {
@@ -228,6 +189,45 @@ exports.verifyEmail = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+// exports.verifyEmail = async (req, res) => {
+//     try {
+//         // const token = req.header('Authorization')?.replace('Bearer ', '');
+//         // if (!token) {
+//         //     return res.status(401).json({ message: 'Access denied. No token provided.' });
+//         // }
+
+//         // const decoded = jwt.verify(token, process.env.JWT_SECRET);
+//         // const user = await User.findById(decoded.id);
+//         // if (!user) {
+//         //     return res.status(401).json({ message: 'User not found.' });
+//         // }
+
+//         const { email, code } = req.body;
+
+//         if (!email || !code) {
+//             return res.status(400).json({ message: 'Email and verification code are required' });
+//         }
+
+//         if (user.email !== email) {
+//             return res.status(400).json({ message: 'Email does not match the logged in user' });
+//         }
+
+//         if (!user.emailVerificationCode || user.emailVerificationCode !== code || new Date() > user.verificationCodeExpiry) {
+//             return res.status(400).json({ message: 'Invalid or expired verification code' });
+//         }
+
+//         user.isVerified = true;
+//         user.emailVerificationCode = null;
+//         user.verificationCodeExpiry = null;
+//         await user.save();
+
+//         res.status(200).json({ message: 'Email verified successfully' });
+
+//     } catch (error) {
+//         console.error('Error verifying email: ', error);
+//         res.status(500).json({ message: 'Server error' });
+//     }
+// };
 
 
 // forget password
