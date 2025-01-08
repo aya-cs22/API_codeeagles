@@ -22,7 +22,7 @@ router.get('/get-all-feedback', userController.getAllFeedback);
 router.delete('/:userId/feedback', authMiddleware, userController.deleteFeedback);
 
 router.post('/add-allowed-emails', authMiddleware, userController.addAllowedEmails);
-router.get('/get-allowed-emails/:groupId', authMiddleware, userController.getAllowedEmails);
+router.get('/get-allowed-emails', authMiddleware, userController.getAllowedEmails);
 router.put('/update-allowed-emails', authMiddleware, userController.updateAllowedEmails);
 router.delete('/remove-allowed-email', authMiddleware, userController.removeAllowedEmail);
 

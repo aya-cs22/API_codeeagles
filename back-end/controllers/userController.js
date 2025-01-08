@@ -187,7 +187,7 @@ exports.verifyEmail = async (req, res) => {
     try {
         const token = req.header('Authorization')?.replace('Bearer ', '');
         if (!token) {
-            return res.status(401).json({ message: 'Access denied. No token provided.' });
+            return res.status(401).json({ message: 'Access denied. ' });
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -955,44 +955,59 @@ exports.addAllowedEmails = async (req, res) => {
 
 
 
-
 exports.getAllowedEmails = async (req, res) => {
     try {
         console.log('Request User:', req.user);
-        if (!req.user || req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'Access denied: Only admins can getAllowedEmails' });
+        const adminId = req.user.id;
+
+        // التحقق من أن المستخدم هو admin
+        const adminUser = await User.findById(adminId);
+        if (adminUser.role !== 'admin') {
+            return res.status(403).json({ message: 'Access denied: Only admins can perform this action' });
         }
 
-        const { groupId } = req.params;
-
-        const group = await Groups.findById(groupId).select('title type_course location start_date allowedEmails');
-        if (!group) {
-            return res.status(404).json({ message: 'Group not found' });
+        // الحصول على جميع المجموعات
+        const groups = await Groups.find().select('title type_course location start_date allowedEmails');
+        if (!groups || groups.length === 0) {
+            return res.status(404).json({ message: 'No groups found' });
         }
 
-        console.log('Allowed Emails:', group.allowedEmails);
+        console.log('Allowed Emails:', groups);
 
         let users = [];
-        if (group.allowedEmails && group.allowedEmails.length > 0) {
-            users = await User.find({
-                email: { $in: group.allowedEmails },
+        // نمر عبر كل مجموعة للحصول على المستخدمين المقترحين
+        for (const group of groups) {
+            if (group.allowedEmails && group.allowedEmails.length > 0) {
+                // البحث عن المستخدمين الذين لديهم بريد إلكتروني موجود في allowedEmails
+                const groupUsers = await User.find({
+                    email: { $in: group.allowedEmails },
+                }).select('name email phone_number');
 
-            })
-                .select('name email phone_number');
+                // إضافة كل مستخدم إلى القائمة
+                users.push(...groupUsers);
+            }
         }
 
-        const response = {
-            groupId: groupId,
+        // إعداد الاستجابة بحيث تحتوي على بيانات كل مجموعة والمستخدمين المرتبطين بكل بريد إلكتروني
+        const response = groups.map(group => ({
+            groupId: group._id,
             title: group.title,
             type_course: group.type_course,
             location: group.location,
             start_date: group.start_date,
-            users
-        };
+            allowedEmails: group.allowedEmails.map(email => {
+                // العثور على المستخدم الذي يطابق البريد الإلكتروني
+                const user = users.find(u => u.email === email);
+                return {
+                    email,
+                    user: user || null // إضافة بيانات المستخدم إذا وجد أو null إذا لم يتم العثور على المستخدم
+                };
+            }),
+        }));
 
         return res.status(200).json({
             message: 'Allowed emails and group details retrieved successfully',
-            group: response
+            groups: response,
         });
     } catch (error) {
         console.error('Error retrieving allowed emails and group details:', error);
