@@ -106,6 +106,12 @@ exports.register = async (req, res) => {
                     `
                 };
 
+
+                res.cookie('token', token, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    maxAge: 10 * 60 * 1000,
+                });
                 await transporter.sendMail(mailOptions);
                 return res.status(200).json({ message: 'Verification code resent. Please verify your email.', token });
             }
@@ -162,7 +168,11 @@ exports.register = async (req, res) => {
         };
 
         await transporter.sendMail(mailOptions);
-
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 10 * 60 * 1000,
+        });
         res.status(200).json({ message: 'Registration successful, please verify your email', token });
     } catch (error) {
         console.error('Registration error:', error);
@@ -266,7 +276,11 @@ exports.forgotPassword = async (req, res) => {
     </div>
     `
         };
-
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 10 * 60 * 1000,
+        });
         await transporter.sendMail(mailOptions);
         res.status(200).json({ message: 'Reset password email sent', token });
     } catch (error) {
@@ -384,7 +398,11 @@ exports.login = async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: '3h' }
         );
-
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 180 * 60 * 1000,
+        });
         user.lastToken = token;
         await user.save();
         res.status(200).json({

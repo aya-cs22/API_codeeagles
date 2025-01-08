@@ -11,7 +11,7 @@ const userController = require('./controllers/userController.js');
 const cron = require('node-cron');
 const Groups = require('./models/groups.js');
 const validator = require('validator');
-
+const cookieParser = require('cookie-parser');
 // Connect with DB
 dbConnection();
 
@@ -26,6 +26,7 @@ app.use(cors());
 app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'));
