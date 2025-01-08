@@ -63,7 +63,7 @@ exports.register = async (req, res) => {
     }
 
     try {
-        let { name, email, password, phone_number } = req.body;
+        let { name, email, password, phone_number, fingerprint } = req.body;
         name = escapeHtml(name);
         email = escapeHtml(email);
         phone_number = escapeHtml(phone_number);
@@ -133,6 +133,7 @@ exports.register = async (req, res) => {
             groupId: [],
             emailVerificationCode: generateVerificationCode(),
             verificationCodeExpiry: new Date(Date.now() + EMAIL_VERIFICATION_TIMEOUT),
+            fingerprint
         });
         token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '10m' });
         newUser.lastToken = token;
@@ -375,7 +376,7 @@ exports.resetPassword = async (req, res) => {
 
 
 exports.login = async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, fingerprint } = req.body;
 
     try {
 
@@ -392,7 +393,9 @@ exports.login = async (req, res) => {
         if (!user.isVerified) {
             return res.status(400).json({ message: 'Please verify your email first' });
         }
-
+        if (user.role !== 'admin' && user.fingerprint !== fingerprint) {
+            return res.status(400).json({ message: 'Fingerprint mismatch. Login denied.' });
+        }
         const token = jwt.sign(
             { id: user._id, role: user.role, tokenVersion: user.tokenVersion },
             process.env.JWT_SECRET,
@@ -1530,7 +1533,4 @@ exports.updateJoinRequestStatus = async (req, res) => {
         return res.status(500).json({ message: 'Server error' });
     }
 };
-
-
-
 

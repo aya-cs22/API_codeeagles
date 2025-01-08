@@ -131,7 +131,10 @@ const userSchema = new mongoose.Schema({
     default: 0,
   },
 
-
+  fingerprint: {
+    type: String,
+    required: true,
+  },
   created_at: {
     type: Date,
     default: Date.now,
