@@ -109,7 +109,8 @@ exports.register = async (req, res) => {
 
                 res.cookie('token', token, {
                     httpOnly: true,
-                    secure: process.env.NODE_ENV === 'production',
+                    // secure: process.env.NODE_ENV === 'production',
+                    secure: false,
                     maxAge: 10 * 60 * 1000,
                 });
                 await transporter.sendMail(mailOptions);
@@ -171,7 +172,8 @@ exports.register = async (req, res) => {
         await transporter.sendMail(mailOptions);
         res.cookie('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            // secure: process.env.NODE_ENV === 'production',
+            secure: false,
             maxAge: 10 * 60 * 1000,
         });
         res.status(200).json({ message: 'Registration successful, please verify your email', token });
@@ -279,7 +281,8 @@ exports.forgotPassword = async (req, res) => {
         };
         res.cookie('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            // secure: process.env.NODE_ENV === 'production',
+            secure: false,
             maxAge: 10 * 60 * 1000,
         });
         await transporter.sendMail(mailOptions);
@@ -403,7 +406,8 @@ exports.login = async (req, res) => {
         );
         res.cookie('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            // secure: process.env.NODE_ENV === 'production',
+            secure: false,
             maxAge: 180 * 60 * 1000,
         });
         user.lastToken = token;
