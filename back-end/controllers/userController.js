@@ -17,7 +17,7 @@ dbConnection();
 const app = express();
 
 // قائمة النطاقات المسموح بها
-const allowedOrigins = ['http://localhost:5173', 'https://your-frontend-domain.com'];
+const allowedOrigins = ['http://localhost:5173', 'https://code-eagles.vercel.app'];
 
 // إعدادات CORS
 app.use(
