@@ -1254,7 +1254,7 @@ exports.updateAllowedEmails = async (req, res) => {
 
 exports.removeAllowedEmail = async (req, res) => {
     try {
-        const { groupId, email } = req.body;
+        const { groupId, allowedEmails } = req.body;
         const adminId = req.user.id;
 
         const adminUser = await User.findById(adminId);
@@ -1267,7 +1267,7 @@ exports.removeAllowedEmail = async (req, res) => {
             return res.status(404).json({ message: 'Group not found' });
         }
 
-        const emailIndex = group.allowedEmails.indexOf(email);
+        const emailIndex = group.allowedEmails.indexOf(allowedEmails);
         if (emailIndex === -1) {
             return res.status(400).json({ message: 'Email not found in allowedEmails' });
         }
