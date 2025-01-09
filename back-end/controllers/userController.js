@@ -1050,9 +1050,52 @@ exports.deleteFeedback = async (req, res) => {
 
 
 
+// exports.addAllowedEmails = async (req, res) => {
+//     try {
+
+//         const { groupId, allowedEmails } = req.body;
+//         const adminId = req.user.id;
+
+//         const adminUser = await User.findById(adminId);
+//         if (adminUser.role !== 'admin') {
+//             return res.status(403).json({ message: 'Access denied: Only admins can perform this action' });
+//         }
+
+//         const group = await Groups.findById(groupId);
+//         if (!group) {
+//             return res.status(404).json({ message: 'Group not found' });
+//         }
+
+//         group.allowedEmails = group.allowedEmails || [];
+
+//         for (const email of allowedEmails) {
+//             const userExists = await User.findOne({ email });
+//             if (!userExists) {
+//                 return res.status(400).json({ message: `Email ${email} does not exist in the database` });
+//             }
+//         }
+
+//         const uniqueEmailsToAdd = allowedEmails.filter(email => !group.allowedEmails.includes(email));
+//         if (uniqueEmailsToAdd.length === 0) {
+//             return res.status(400).json({ message: 'All emails are already added to this group' });
+//         }
+
+//         group.allowedEmails.push(...uniqueEmailsToAdd);
+//         await group.save();
+
+//         return res.status(200).json({
+//             message: 'Allowed emails added successfully',
+
+//             allowedEmails: group.allowedEmails
+//         });
+//     } catch (error) {
+//         console.error('Error adding allowed emails:', error);
+//         return res.status(500).json({ message: 'Server error' });
+//     }
+// };
+
 exports.addAllowedEmails = async (req, res) => {
     try {
-
         const { groupId, allowedEmails } = req.body;
         const adminId = req.user.id;
 
@@ -1068,24 +1111,25 @@ exports.addAllowedEmails = async (req, res) => {
 
         group.allowedEmails = group.allowedEmails || [];
 
-        for (const email of allowedEmails) {
-            const userExists = await User.findOne({ email });
+        const emailsArray = typeof allowedEmails === 'string' ? allowedEmails.split(',') : allowedEmails;
+
+        for (const email of emailsArray) {
+            const userExists = await User.findOne({ email: email.trim() });
             if (!userExists) {
                 return res.status(400).json({ message: `Email ${email} does not exist in the database` });
             }
         }
 
-        const uniqueEmailsToAdd = allowedEmails.filter(email => !group.allowedEmails.includes(email));
+        const uniqueEmailsToAdd = emailsArray.filter(email => !group.allowedEmails.includes(email.trim()));
         if (uniqueEmailsToAdd.length === 0) {
             return res.status(400).json({ message: 'All emails are already added to this group' });
         }
 
-        group.allowedEmails.push(...uniqueEmailsToAdd);
+        group.allowedEmails.push(...uniqueEmailsToAdd.map(email => email.trim()));
         await group.save();
 
         return res.status(200).json({
             message: 'Allowed emails added successfully',
-
             allowedEmails: group.allowedEmails
         });
     } catch (error) {
@@ -1093,7 +1137,6 @@ exports.addAllowedEmails = async (req, res) => {
         return res.status(500).json({ message: 'Server error' });
     }
 };
-
 
 
 exports.getAllowedEmails = async (req, res) => {
