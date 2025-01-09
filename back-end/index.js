@@ -4,44 +4,33 @@ const morgan = require('morgan');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
-const cookieParser = require('cookie-parser');
+const xss = require('xss');
 dotenv.config({ path: 'config.env' });
 const dbConnection = require('./config/db.js');
 const userController = require('./controllers/userController.js');
+const cron = require('node-cron');
 const Groups = require('./models/groups.js');
-
+const validator = require('validator');
+const cookieParser = require('cookie-parser');
 // Connect with DB
 dbConnection();
 
 // express app
 const app = express();
 
-// قائمة النطاقات المسموح بها
-const allowedOrigins = ['http://localhost:5173', 'https://code-eagles.vercel.app'];
-
-// إعدادات CORS
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true, // السماح بإرسال بيانات الاعتماد (الكوكيز)
-  })
-);
-
-// Middlewares
+// middlewares
+app.use(cors());
+// {
+//     origin: 'https://code-eagles.vercel.app'
+// }
 app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-  console.log(mode: ${process.env.NODE_ENV});
+    app.use(morgan('dev'));
+    console.log(`mode: ${process.env.NODE_ENV}`);
 }
 
 // Routes
@@ -55,13 +44,15 @@ app.use('/api/groups', groupsRoutes);
 app.use('/api/lectures', lectureRoutes);
 app.use('/api/contact', contactusRoutes);
 
+
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send('Something broke!');
+    console.error(err.stack);
+    res.status(500).send('Something broke!');
 });
+
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
-  console.log(Listening on port ${PORT});
+    console.log(`Listening on port ${PORT}`);
 });
