@@ -10,6 +10,7 @@ const authMiddleware = require('../middleware/authenticate')
 const { body, validationResult } = require('express-validator');
 const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
+// const redisClient = require('../utils/cache/redisClient'); 
 // Import FingerprintJS
 const FingerprintJS = require('@fingerprintjs/fingerprintjs');
 
@@ -790,6 +791,41 @@ exports.getAllUsers = async (req, res) => {
 
 
 
+// exports.getAllUsers = async (req, res) => {
+//     try {
+//         if (req.user.role !== 'admin') {
+//             return res.status(403).json({ message: 'Access denied' });
+//         }
+
+//         if (!redisClient.isOpen) {
+//             await redisClient.connect(); 
+//         }
+
+//         const cachedUsers = await redisClient.get('all_users');
+
+//         if (cachedUsers) {
+//             console.log('Returning data from Redis');
+//             return res.status(200).json(JSON.parse(cachedUsers));
+//         }
+
+//         const users = await User.find().select('-password');
+        
+//         await redisClient.set('all_users', JSON.stringify(users), { EX: 3600 }); 
+//         console.log('Returning data from MongoDB');
+        
+//         res.status(200).json(users);
+//     } catch (error) {
+//         console.error(error);
+//         res.status(500).json({ message: 'Server error' });
+//     }
+// };
+
+
+
+
+
+
+
 
 exports.getPendingUsers = async (req, res) => {
     try {
@@ -885,8 +921,6 @@ exports.updateUser = async (req, res) => {
         return res.status(500).json({ message: 'Server error' });
     }
 };
-
-
 
 
 // update role user by admin
@@ -1215,12 +1249,7 @@ exports.updateAllowedEmails = async (req, res) => {
         const { groupId, allowedEmails } = req.body;
         const adminId = req.user.id;
 
-        // التحقق إذا كان allowedEmails عبارة عن مصفوفة
-        if (!Array.isArray(allowedEmails)) {
-            return res.status(400).json({ message: 'allowedEmails should be an array' });
-        }
-
-        // التحقق إذا كان المستخدم هو admin
+        //
         const adminUser = await User.findById(adminId);
         if (adminUser.role !== 'admin') {
             return res.status(403).json({ message: 'Access denied: Only admins can perform this action' });
@@ -1232,14 +1261,12 @@ exports.updateAllowedEmails = async (req, res) => {
             return res.status(404).json({ message: 'Group not found' });
         }
 
-        // التحقق من وجود الإيميلات في قاعدة البيانات وإزالتها من الجروبات الأخرى
         for (const email of allowedEmails) {
             const userExists = await User.findOne({ email });
-            if (!userExists) {
-                return res.status(400).json({ message: `Email ${email} does not exist in the database` });
-            }
+            // if (!userExists) {
+            //     return res.status(400).json({ message: `Email ${email} does not exist in the database` });
+            // }
 
-            // إزالة الإيميل من الجروبات الأخرى
             const oldGroup = await Groups.findOne({ allowedEmails: email });
             if (oldGroup && oldGroup._id.toString() !== groupId) {
                 oldGroup.allowedEmails = oldGroup.allowedEmails.filter(existingEmail => existingEmail !== email);
@@ -1247,7 +1274,6 @@ exports.updateAllowedEmails = async (req, res) => {
             }
         }
 
-        // تحديث allowedEmails في الجروب
         group.allowedEmails = allowedEmails;
         await group.save();
 
@@ -1604,6 +1630,74 @@ exports.rejectJoinRequest = async (req, res) => {
         return res.status(500).json({ message: 'Server error' });
     }
 };
+
+
+exports.leaveGroup = async (req, res) => {
+    try {
+        const { groupId } = req.body;
+        const userId = req.user.id; 
+
+        const user = await User.findById(userId);
+        const group = await Groups.findById(groupId);
+
+        if (!user || !group) {
+            return res.status(404).json({ message: 'User or Group not found' });
+        }
+
+        const userInGroup = group.members.some(member => member.user_id && member.user_id.toString() === user._id.toString());
+        if (!userInGroup) {
+            return res.status(400).json({ message: 'You are not a member of this group' });
+        }
+
+        group.members = group.members.filter(member => member.user_id && member.user_id.toString() !== user._id.toString());
+        await group.save();
+
+        user.groups = user.groups.filter(groupItem => groupItem.groupId && groupItem.groupId.toString() !== groupId.toString());
+
+        user.attendance = user.attendance.filter(attendance => attendance.groupId && attendance.groupId.toString() !== groupId.toString());
+
+        user.totalPresent = 0;
+        user.totalAbsent = 0;
+
+        await user.save();
+
+        const mailOptions = {
+            from: process.env.ADMIN_EMAIL,
+            to: user.email,
+            subject: '🚪 You Have Left the Group',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                <header style="background-color: #FF6347; padding: 20px; text-align: center; color: white;">
+                  <h1 style="margin: 0; font-size: 24px;">You Have Left the Group</h1>
+                </header>
+                <div style="padding: 20px; background-color: #f9f9f9;">
+                  <h2 style="font-size: 20px; color: #333;">Hello, ${user.name}!</h2>
+                  <p style="color: #555;">We have successfully processed your request to leave the group <strong>"${group.title}"</strong>.</p>
+                  <p style="color: #555;">If you have any further questions or concerns, feel free to reach out to us. We are here to help.</p>
+                  <p style="margin-top: 20px; color: #555;">Best regards,<br>The Team</p>
+                </div>
+                <footer style="background-color: #f1f1f1; padding: 10px; text-align: center; color: #777; font-size: 14px;">
+                  <p style="margin: 0;">Need help? Contact us at <a href="mailto:codeeagles653@gmail.com" style="color:  #FF6347; text-decoration: none;">codeeagles653@gmail.com</a></p>
+                </footer>
+              </div>
+            `
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                console.error('Error sending email:', error);
+                return res.status(500).json({ message: 'Error sending email' });
+            }
+            console.log('Email sent:', info.response);
+            return res.status(200).json({ message: 'You have successfully left the group' });
+        });
+
+    } catch (error) {
+        console.error('Error in leaving group:', error);
+        return res.status(500).json({ message: 'Server error' });
+    }
+};
+
 
 
 
