@@ -7,21 +7,26 @@ const userSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
+    maxlength: [50, 'Name cannot be longer than 50 characters'], 
   },
   email: {
     type: String,
     unique: true,
     required: true,
     lowercase: true,
+    maxlength: [100, 'Email cannot be longer than 100 characters'],
+
     match: [
       /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
       'Please enter a valid email'
     ]
+    
   },
   password: {
     type: String,
     required: true,
-    minlength: [10, 'too short password']
+    minlength: [10, 'too short password'],
+    maxlength: [255, 'Password cannot be longer than 255 characters'], 
   },
 
   isVerified: {
@@ -32,6 +37,7 @@ const userSchema = new mongoose.Schema({
   phone_number: {
     type: String,
     required: true,
+    maxlength: [30, 'Phone number cannot be longer than 30 characters'],
   },
   role: {
     type: String,
@@ -64,7 +70,9 @@ const userSchema = new mongoose.Schema({
 
   emailVerificationCode: {
     type: String,
-    default: null
+    default: null,
+    minlength: [6, 'email Verification Code cannot be smaller than 6 characters'],
+    maxlength: [6, 'email Verification Code cannot be longer than 6 characters'],
   },
   verificationCodeExpiry: { // Verification code expiration date
     type: Date,
@@ -72,7 +80,9 @@ const userSchema = new mongoose.Schema({
   },
   resetPasswordToken: {
     type: String,
-    default: null
+    default: null,
+    minlength: [6, 'reset Password Token cannot be smaller than 6 characters'],
+    maxlength: [6, 'reset Password Token cannot be longer than 6 characters'],
   },
   resetPasswordExpiry: {
     type: Date,
@@ -118,22 +128,22 @@ const userSchema = new mongoose.Schema({
     },
   ],
 
-  message: {
-    type: String,
-  },
+  // message: {
+  //   type: String,
+  // },
 
   lastToken: {
     type: String,
     default: null,
   },
-  tokenVersion: {
-    type: Number,
-    default: 0,
-  },
+  // tokenVersion: {
+  //   type: Number,
+  //   default: 0,
+  // },
 
   fingerprint: {
     type: String,
-    required: true,
+    required: false
   },
   created_at: {
     type: Date,

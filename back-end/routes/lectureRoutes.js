@@ -3,12 +3,15 @@ const router = express.Router();
 const Lectures = require('../models/lectures');
 const lecturesController = require('../controllers/lecturesController.js');
 const authMiddleware = require('../middleware/authenticate');
+const lecturesValidator = require('../utils/validators/lecturesValidator.js');
+
+
 
 router.post('/', authMiddleware, lecturesController.createLectures);
 router.put('/:lectureId', authMiddleware, lecturesController.updateLecturesById);
 router.get('/:lectureId', authMiddleware, lecturesController.getLectureById);
 router.get('/group/:groupId', authMiddleware, lecturesController.getLecturesByGroupId);
-router.post('/attend', authMiddleware, lecturesController.attendLecture);
+router.post('/attend', authMiddleware, lecturesValidator, lecturesController.attendLecture);
 router.get('/:lectureId/attendance', authMiddleware, lecturesController.getAttendanceByLecture);
 router.get('/:lectureId/non-attendees', authMiddleware, lecturesController.getUsersNotAttendedLecture);
 router.get('/:groupId/attended-lectures', authMiddleware, lecturesController.getUserAttendedLecturesInGroup);
@@ -18,7 +21,7 @@ router.post('/:lectureId/createtasks', authMiddleware, lecturesController.create
 router.put('/:lectureId/edit-task/:taskId', authMiddleware, lecturesController.updateTaskInLecture);
 router.get('/:lectureId/tasks/:taskId', authMiddleware, lecturesController.getTaskById);
 router.get('/:lectureId/get-tasks', authMiddleware, lecturesController.getAllTasksByLectureId);
-router.post('/:lectureId/submit-task/:taskId', authMiddleware, lecturesController.submitTask);
+router.post('/:lectureId/submit-task/:taskId', authMiddleware,lecturesValidator,  lecturesController.submitTask);
 router.put('/:lectureId/tasks/:taskId/submissions/:submissionId/evaluate', authMiddleware, lecturesController.evaluateTask);
 router.get('/:lectureId/:taskId/all-user-submit-task', authMiddleware, lecturesController.getAllUserSubmissionsForTask);
 router.get('/:lectureId/:taskId/all-user-not-submit-task', authMiddleware, lecturesController.getUsersNotSubmittedTask);

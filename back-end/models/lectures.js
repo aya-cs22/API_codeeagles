@@ -13,6 +13,8 @@ const taskSchema = new mongoose.Schema({
       submissionLink: {
         type: String,
         required: true,
+        minlength: [30, 'Google Drive link must be at least 30 characters long'], 
+        maxlength: [150, 'Google Drive link cannot be longer than 150 characters'],
       },
       submittedAt: {
         type: Date,
@@ -53,7 +55,9 @@ const lecturesSchema = new mongoose.Schema({
   code: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    minlength: [6, 'Code cannot be smaller than 6 characters'],
+    maxlength: [6, 'Code cannot be longer than 6 characters'],
   },
 
   attendees: [

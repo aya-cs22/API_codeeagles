@@ -1,21 +1,24 @@
 const express = require('express');
 const router = express.Router();
+// const rateLimiter = require('../middleware/rateLimiter');
+const userValidator = require('../utils/validators/userValidator');
 const userController = require('../controllers/userController');
 const authMiddleware = require('../middleware/authenticate')
 
+
 //authentication
-router.post('/register', userController.register);
-router.post('/verify-Email', userController.verifyEmail);
-router.post('/login', userController.login);
-router.post('/forgot-password', userController.forgotPassword);
-router.post('/reset-password', userController.resetPassword);
+router.post('/register', userValidator, userController.register);
+router.post('/verify-Email', userValidator, userController.verifyEmail);
+router.post('/login',userValidator, userController.login);
+router.post('/forgot-password', userValidator, userController.forgotPassword);
+router.post('/reset-password', userValidator, userController.resetPassword);
 
 //feedback
-router.post('/submit-feedback', authMiddleware, userController.submitFeedback);
+router.post('/submit-feedback', authMiddleware,userController.submitFeedback);
 router.get('/get-all-feedback', userController.getAllFeedback);
 router.delete('/:userId/feedback', authMiddleware, userController.deleteFeedback);
 
-router.post('/add-allowed-emails', authMiddleware, userController.addAllowedEmails);
+router.post('/add-allowed-emails', authMiddleware, userValidator, userController.addAllowedEmails);
 router.get('/get-allowed-emails', authMiddleware, userController.getAllowedEmails);
 router.put('/update-allowed-emails', authMiddleware, userController.updateAllowedEmails);
 router.delete('/remove-allowed-email', authMiddleware, userController.removeAllowedEmail);
