@@ -527,12 +527,21 @@ exports.login = async (req, res) => {
 
         if (!user.fingerprint) {
             user.fingerprint = fingerprint; 
+            
+            const token = jwt.sign(
+                { id: user._id, role: user.role },
+                process.env.JWT_SECRET,
+                { expiresIn: '3h' }
+            );
+            user.lastToken = token; 
+        
             await user.save(); 
             return res.status(200).json({
                 message: 'Login successful. Fingerprint saved for future logins.',
-                token: user.lastToken,  
+                token,  // أعد التوكن الجديد
             });
         }
+        
 
         if (user.role !== 'admin' && user.fingerprint !== fingerprint) {
             return res.status(400).json({ message: 'Fingerprint mismatch. Login denied.' });
@@ -1114,12 +1123,12 @@ exports.addAllowedEmails = async (req, res) => {
 
         const emailsArray = typeof allowedEmails === 'string' ? allowedEmails.split(',') : allowedEmails;
 
-        for (const email of emailsArray) {
-            const userExists = await User.findOne({ email: email.trim() });
-            if (!userExists) {
-                return res.status(400).json({ message: `Email ${email} does not exist in the database` });
-            }
-        }
+        // for (const email of emailsArray) {
+        //     const userExists = await User.findOne({ email: email.trim() });
+        //     if (!userExists) {
+        //         return res.status(400).json({ message: `Email ${email} does not exist in the database` });
+        //     }
+        // }
 
         const uniqueEmailsToAdd = emailsArray.filter(email => !group.allowedEmails.includes(email.trim()));
         if (uniqueEmailsToAdd.length === 0) {
