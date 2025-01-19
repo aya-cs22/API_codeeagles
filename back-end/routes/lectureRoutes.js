@@ -14,8 +14,8 @@ router.get('/group/:groupId', authMiddleware, lecturesController.getLecturesByGr
 router.post('/attend', authMiddleware, lecturesValidator, lecturesController.attendLecture);
 router.get('/:lectureId/attendance', authMiddleware, lecturesController.getAttendanceByLecture);
 router.get('/:lectureId/non-attendees', authMiddleware, lecturesController.getUsersNotAttendedLecture);
-router.get('/:groupId/attended-lectures', authMiddleware, lecturesController.getUserAttendedLecturesInGroup);
-router.get('/:groupId/non-attended-lectures', authMiddleware, lecturesController.getUserNotAttendedLecturesInGroup);
+// router.get('/:groupId/attended-lectures', authMiddleware, lecturesController.getUserAttendedLecturesInGroup);
+// router.get('/:groupId/non-attended-lectures', authMiddleware, lecturesController.getUserNotAttendedLecturesInGroup);
 router.delete('/:lectureId', authMiddleware, lecturesController.deleteLecturesById);
 router.post('/:lectureId/createtasks', authMiddleware, lecturesController.createTaskInLecture);
 router.put('/:lectureId/edit-task/:taskId', authMiddleware, lecturesController.updateTaskInLecture);
@@ -29,6 +29,9 @@ router.get('/:groupId/get-user-submissions-for-group', authMiddleware, lecturesC
 router.get('/:groupId/get-user-unsubmissions-for-group', authMiddleware, lecturesController.getUserUnsubmittedTasksForGroup);
 router.delete('/:lectureId/tasks/:taskId', authMiddleware, lecturesController.deleteTask);
 
+router.get('/:groupId/get-user-attendance-status-in-group', authMiddleware, lecturesController.getUserAttendanceStatusInGroup);
+router.get('/:userId/:groupId/attendance-by-admin', authMiddleware, lecturesController.getUserAttendanceStatusByGroupId);
+router.get('/:lectureId/get-lecture-attendance-details', authMiddleware, lecturesController.getLectureAttendanceDetails);
 
 
 

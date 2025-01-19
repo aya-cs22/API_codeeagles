@@ -63,7 +63,38 @@ const userSchema = new mongoose.Schema({
         enum: ['pending', 'approved', 'rejected'],
         default: 'pending',
       },
-    },
+      attendance: [
+        {
+          lectureId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Lectures',
+            required: true
+          },
+          attendanceStatus: {
+            type: String,
+            enum: ['present', 'absent'],
+            default: 'absent',
+          },
+          attendedAt: {
+            type: Date,
+            default: null
+          }
+        }
+      ],
+      totalAttendance: {
+        type: Number,
+        default: 0,
+      },
+      totalAbsence: {
+        type: Number,
+        default: 0,
+      },
+
+      attendancePercentage: {
+        type: Number,
+        default: 0, 
+      }
+    }
   ],
 
   feedback: { type: String },
@@ -89,33 +120,6 @@ const userSchema = new mongoose.Schema({
     default: null
   },
 
-  attendance: [
-    {
-      lectureId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Lectures',
-        required: true
-      },
-      attendanceStatus: {
-        type: String,
-        enum: ['present', 'absent'],
-        default: 'absent',
-      },
-      attendedAt: {
-        type: Date,
-        default: null
-      }
-    }
-  ],
-
-  totalPresent: {
-    type: Number,
-    default: 0
-  },
-  totalAbsent: {
-    type: Number,
-    default: 0
-  },
   tasks: [
     {
       lectureId: mongoose.Schema.Types.ObjectId,

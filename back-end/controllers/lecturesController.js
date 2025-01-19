@@ -19,21 +19,10 @@ exports.createLectures = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    // Generate unique 6-character code
-    const generateUniqueCode = () => {
-      return Math.random().toString(36).substring(2, 8).toUpperCase();
-    };
+    const generateUniqueCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
     const code = generateUniqueCode();
 
-    const lecture = new Lectures({
-      group_id,
-      title,
-      article,
-      description,
-      resources,
-      code,
-    });
-
+    const lecture = new Lectures({ group_id, title, article, description, resources, code });
     await lecture.save();
 
     const group = await Groups.findById(group_id);
@@ -42,61 +31,34 @@ exports.createLectures = async (req, res) => {
     }
 
     const users = await User.find({ 'groups.groupId': group_id });
-    const approvedUsers = users.filter(user =>
+    const approvedUsers = users.filter(user => 
       user.groups.some(group => group.groupId.toString() === group_id && group.status === 'approved')
     );
 
     for (let user of approvedUsers) {
-      const alreadyAttended = user.attendance.some(att => att.lectureId.toString() === lecture._id.toString());
+      const group = user.groups.find(group => group.groupId.toString() === group_id);
+      if (!group.attendance) group.attendance = [];
+
+      // Add lecture to the user's attendance if not already added
+      const alreadyAttended = group.attendance.some(att => att.lectureId.toString() === lecture._id.toString());
       if (!alreadyAttended) {
-        user.attendance.push({
+        group.attendance.push({
           lectureId: lecture._id,
-          attendanceStatus: 'absent',
+          attendanceStatus: 'absent', 
           attendedAt: null,
         });
-        user.totalAbsent += 1;
+        group.totalAbsence = (group.totalAbsence || 0) + 1; 
+      }
+
+      // Calculate attendance percentage after adding the lecture
+      const totalLectures = group.totalAttendance + group.totalAbsence;
+      if (totalLectures > 0) {
+        group.attendancePercentage = (group.totalAttendance / totalLectures) * 100;
+      } else {
+        group.attendancePercentage = 0;
       }
 
       await user.save();
-    }
-
-    const emailAddresses = approvedUsers.map(user => user.email);
-    if (emailAddresses.length > 0) {
-      emailAddresses.forEach(async (email) => {
-        const mailOptions = {
-          from: process.env.ADMIN_EMAIL,
-          to: email,
-          subject: `✨ New Lecture Alert: ${title}! 🚀`,
-          html: `
-            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-              <header style="background-color: #4CAF50; color: white; text-align: center; padding: 20px;">
-                <h1 style="margin: 0;">Code Eagles 🦅</h1>
-                <p style="font-size: 1.2em;">Empowering Your Learning Journey</p>
-              </header>
-              <main style="padding: 20px;">
-                <h2 style="color: #4CAF50;">📘 New Lecture Created: "${title}"</h2>
-                <p>Dear User,</p>
-                <p>We're excited to inform you that a new lecture titled <strong>"${title}"</strong> has been added to your group! 🎉</p>
-                <p>You can now explore the lecture materials and access all the resources provided to enhance your learning experience.</p>
-              </main>
-              <footer style="background-color: #f9f9f9; text-align: center; padding: 10px; font-size: 0.9em; color: #666;">
-                <p>Thank you for being part of Code Eagles. 🦅</p>
-                <p>For any questions, feel free to reach out to us at <a href="mailto:codeeagles653@gmail.com
-" style="color: #4CAF50;">codeeagles653@gmail.com</a>.</p>
-              </footer>
-            </div>
-          `,
-          text: `Dear User,\n\nA new lecture titled "${title}" has been created in your group. You can now access the lecture and its resources.\n\nBest regards,\nCode Eagles`,
-        };
-
-
-        try {
-          await transporter.sendMail(mailOptions);
-          console.log(`Email sent to ${email}`);
-        } catch (error) {
-          console.error(`Failed to send email to ${email}: `, error);
-        }
-      });
     }
 
     res.status(201).json({ message: 'Lecture created successfully', lecture });
@@ -108,6 +70,129 @@ exports.createLectures = async (req, res) => {
 
 
 
+
+exports.attendLecture = async (req, res) => {
+  try {
+    const { lectureId, code } = req.body;
+    const userId = req.user.id;
+
+    const lecture = await Lectures.findById(lectureId);
+    if (!lecture) {
+      return res.status(404).json({ message: 'Lecture not found' });
+    }
+
+    if (lecture.code !== code) {
+      return res.status(400).json({ message: 'Invalid code' });
+    }
+
+    const user = await User.findById(userId);
+    const groupUser = user.groups.find(group => group.groupId.toString() === lecture.group_id.toString());
+    if (!groupUser || groupUser.status !== 'approved') {
+      return res.status(403).json({ message: 'User not approved in this group' });
+    }
+
+    const attendanceIndex = groupUser.attendance.findIndex(att => att.lectureId.toString() === lectureId);
+    if (attendanceIndex !== -1) {
+      const attendance = groupUser.attendance[attendanceIndex];
+      if (attendance.attendanceStatus === 'present') {
+        return res.status(400).json({ message: 'User already attended this lecture' });
+      }
+
+      attendance.attendanceStatus = 'present';
+      attendance.attendedAt = Date.now();
+    } else {
+      groupUser.attendance.push({
+        lectureId,
+        attendanceStatus: 'present',
+        attendedAt: Date.now(),
+      });
+    }
+
+    groupUser.totalAttendance = (groupUser.totalAttendance || 0) + 1;
+    groupUser.totalAbsence = Math.max((groupUser.totalAbsence || 0) - 1, 0);
+
+    const totalLectures = groupUser.totalAttendance + groupUser.totalAbsence;
+    if (totalLectures > 0) {
+      groupUser.attendancePercentage = ((groupUser.totalAttendance / totalLectures) * 100).toFixed(2);
+    } else {
+      groupUser.attendancePercentage = 0;
+    }
+
+    lecture.attendees.push({ userId });
+    lecture.attendanceCount = (lecture.attendanceCount || 0) + 1;
+
+    await lecture.save();
+    await user.save();
+
+    res.status(200).json({
+      message: 'Attendance recorded successfully',
+      attendancePercentage: groupUser.attendancePercentage.toFixed(2), 
+    });
+  } catch (error) {
+    console.error('Error attending lecture:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
+
+
+
+exports.getUserAttendanceStatusInGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const userId = req.user.id;
+
+    const userGroup = await User.findOne(
+      { _id: userId, 'groups.groupId': groupId },
+      { 'groups.$': 1 }
+    );
+
+    if (!userGroup || userGroup.groups[0].status !== 'approved') {
+      return res.status(403).json({ message: 'User not approved in this group' });
+    }
+
+    const lectures = await Lectures.find({ group_id: groupId });
+
+    if (!lectures || lectures.length === 0) {
+      return res.status(404).json({ message: 'No lectures found for this group' });
+    }
+
+    let attendedLecturesCount = 0;
+    let notAttendedLecturesCount = 0;
+
+    const response = lectures.map((lecture) => {
+      const attendee = lecture.attendees.find(att => att.userId.toString() === userId);
+      const isAttended = attendee ? true : false;
+
+      if (isAttended) {
+        attendedLecturesCount++;
+      } else {
+        notAttendedLecturesCount++;
+      }
+
+      return {
+        lectureId: lecture._id,
+        title: lecture.title,
+        attendedAt: isAttended ? attendee.attendedAt : 'N/A',
+        status: isAttended ? 'present' : 'absent',
+      };
+    });
+
+    const attendancePercentage = ((attendedLecturesCount / lectures.length) * 100).toFixed(2);
+
+    res.status(200).json({
+      groupId,
+      attendedLecturesCount,
+      notAttendedLecturesCount,
+      attendancePercentage,
+      lectures: response,
+    });
+  } catch (error) {
+    console.error('Error fetching user attendance:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
 // Update Lecture
 exports.updateLecturesById = async (req, res) => {
@@ -224,51 +309,52 @@ exports.attendLecture = async (req, res) => {
       return res.status(400).json({ message: 'Invalid code' });
     }
 
-    const group = await Groups.findById(lecture.group_id);
-    if (!group) {
-      return res.status(404).json({ message: 'Group not found' });
-    }
-
     const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    const groupUser = user.groups.find(group => group.groupId.toString() === lecture.group_id.toString());
+    if (!groupUser || groupUser.status !== 'approved') {
+      return res.status(403).json({ message: 'User not approved in this group' });
     }
 
-    const isApproved = user.groups.some(group => group.groupId.toString() === lecture.group_id.toString() && group.status === 'approved');
-    if (!isApproved) {
-      return res.status(403).json({ message: 'User is not approved in this group' });
+    const attendanceIndex = groupUser.attendance.findIndex(att => att.lectureId.toString() === lectureId);
+    if (attendanceIndex !== -1) {
+      const attendance = groupUser.attendance[attendanceIndex];
+      if (attendance.attendanceStatus === 'present') {
+        return res.status(400).json({ message: 'User already attended this lecture' });
+      }
+
+      attendance.attendanceStatus = 'present';
+      attendance.attendedAt = Date.now();
+    } else {
+      groupUser.attendance.push({
+        lectureId,
+        attendanceStatus: 'present',
+        attendedAt: Date.now(),
+      });
     }
 
-    const absenceIndex = user.attendance.findIndex(att => att.lectureId.toString() === lectureId && att.attendanceStatus === 'absent');
+    // Update total attendance and absence
+    groupUser.totalAttendance = (groupUser.totalAttendance || 0) + 1;
+    groupUser.totalAbsence = Math.max((groupUser.totalAbsence || 0) - 1, 0);
 
-    if (absenceIndex !== -1) {
-      user.attendance.splice(absenceIndex, 1);
+    // Calculate the correct attendance percentage based on the updated values
+    const totalLectures = groupUser.totalAttendance + groupUser.totalAbsence;
+    if (totalLectures > 0) {
+      groupUser.attendancePercentage = (groupUser.totalAttendance / totalLectures) * 100;
+    } else {
+      groupUser.attendancePercentage = 0;
     }
 
-    const alreadyAttended = user.attendance.some(att => att.lectureId.toString() === lectureId && att.attendanceStatus === 'present');
-    if (alreadyAttended) {
-      return res.status(400).json({ message: 'User already attended this lecture' });
-    }
-
-    user.attendance.push({
-      lectureId,
-      attendanceStatus: 'present',
-      attendedAt: Date.now(),
-    });
-
-    user.totalPresent += 1;
-
-    const totalLectures = await Lectures.countDocuments({ group_id: group._id });
-    const totalAbsent = totalLectures - user.totalPresent;
-    user.totalAbsent = totalAbsent;
-
+    // Update lecture attendance count
     lecture.attendees.push({ userId });
-    lecture.attendanceCount += 1;
+    lecture.attendanceCount = (lecture.attendanceCount || 0) + 1;
 
     await lecture.save();
     await user.save();
 
-    res.status(200).json({ message: 'Attendance recorded successfully' });
+    res.status(200).json({
+      message: 'Attendance recorded successfully',
+      attendancePercentage: groupUser.attendancePercentage.toFixed(2), // Show percentage with two decimal places
+    });
   } catch (error) {
     console.error('Error attending lecture:', error);
     res.status(500).json({ message: 'Server error' });
@@ -359,10 +445,102 @@ exports.getUsersNotAttendedLecture = async (req, res) => {
 
 
 
-exports.getUserAttendedLecturesInGroup = async (req, res) => {
+// exports.getUserAttendedLecturesInGroup = async (req, res) => {
+//   try {
+//     const { groupId } = req.params;
+//     const userId = req.user.id;
+
+//     const lectures = await Lectures.find({ group_id: groupId })
+//       .populate('attendees.userId', 'name email')
+//       .select('title attendees');
+
+//     if (!lectures || lectures.length === 0) {
+//       return res.status(404).json({ message: 'No lectures found for this group' });
+//     }
+
+//     // التحقق من الحضور داخل الـ `groups.attendance`
+//     const attendedLectures = lectures.filter((lecture) => {
+//       return lecture.attendees.some((attendee) => 
+//         attendee.userId._id.toString() === userId &&
+//         attendee.attendanceStatus === 'present'
+//       );
+//     });
+
+//     if (attendedLectures.length === 0) {
+//       return res.status(404).json({ message: 'User has not attended any lectures in this group' });
+//     }
+
+//     const response = attendedLectures.map((lecture) => ({
+//       title: lecture.title,
+//       attendedAt: lecture.attendees.find(
+//         (attendee) => attendee.userId._id.toString() === userId
+//       )?.attendedAt || 'N/A',
+//     }));
+
+//     res.status(200).json({ attendedLectures: response });
+//   } catch (error) {
+//     console.error('Error fetching attended lectures:', error);
+//     res.status(500).json({ message: 'Server error' });
+//   }
+// };
+
+
+// exports.getUserNotAttendedLecturesInGroup = async (req, res) => {
+//   try {
+//     const { groupId } = req.params;
+//     const userId = req.user.id;
+
+//     const lectures = await Lectures.find({ group_id: groupId })
+//       .populate('attendees.userId', 'name email')
+//       .select('title attendees');
+
+//     if (!lectures || lectures.length === 0) {
+//       return res.status(404).json({ message: 'No lectures found for this group' });
+//     }
+
+//     const notAttendedLectures = lectures.filter((lecture) => {
+//       return !lecture.attendees.some((attendee) => 
+//         attendee.userId._id.toString() === userId &&
+//         attendee.attendanceStatus === 'present'
+//       );
+//     });
+
+//     if (notAttendedLectures.length === 0) {
+//       return res.status(404).json({ message: 'User has attended all lectures in this group' });
+//     }
+
+//     const response = notAttendedLectures.map((lecture) => ({
+//       title: lecture.title,
+//       scheduledAt: lecture.created_at,
+//     }));
+
+//     res.status(200).json({ notAttendedLectures: response });
+//   } catch (error) {
+//     console.error('Error fetching non-attended lectures:', error);
+//     res.status(500).json({ message: 'Server error' });
+//   }
+// };
+
+
+
+
+// للحصول على تفاصيل الحضور الخاصة بالمستخدم في الجروب
+
+
+
+exports.getUserAttendanceStatusInGroup = async (req, res) => {
   try {
     const { groupId } = req.params;
     const userId = req.user.id;
+
+    const userGroup = await User.findOne(
+      { _id: userId, 'groups.groupId': groupId },
+      { 'groups.$': 1 }
+    );
+
+    if (!userGroup || userGroup.groups[0].status !== 'approved') {
+      return res.status(403).json({ message: 'User not approved in this group' });
+    }
 
     const lectures = await Lectures.find({ group_id: groupId })
       .populate('attendees.userId', 'name email')
@@ -372,67 +550,183 @@ exports.getUserAttendedLecturesInGroup = async (req, res) => {
       return res.status(404).json({ message: 'No lectures found for this group' });
     }
 
-    const attendedLectures = lectures.filter((lecture) =>
-      lecture.attendees.some((attendee) =>
-        attendee.userId && attendee.userId._id.equals(userId)
-      )
-    );
+    let attendedLecturesCount = 0;
+    let notAttendedLecturesCount = 0;
 
-    if (attendedLectures.length === 0) {
-      return res.status(404).json({ message: 'User has not attended any lectures in this group' });
-    }
-
-    const response = attendedLectures.map((lecture) => ({
-      title: lecture.title,
-      attendedAt: lecture.attendees.find(
+    const response = lectures.map((lecture) => {
+      const attendee = lecture.attendees.find(
         (attendee) => attendee.userId && attendee.userId._id.equals(userId)
-      )?.attendedAt || 'N/A',
-    }));
+      );
 
-    res.status(200).json({ attendedLectures: response });
+      const isAttended = attendee ? true : false;
+
+      if (isAttended) {
+        attendedLecturesCount++;
+      } else {
+        notAttendedLecturesCount++;
+      }
+
+      return {
+        lectureId: lecture._id, 
+        title: lecture.title,
+        attendedAt: isAttended ? attendee.attendedAt : 'N/A',
+        status: isAttended ? 'present' : 'absent',
+        scheduledAt: lecture.created_at,
+      };
+    });
+
+    const totalLectures = attendedLecturesCount + notAttendedLecturesCount;
+    const attendancePercentage = totalLectures > 0
+      ? ((attendedLecturesCount / totalLectures) * 100).toFixed(2)
+      : '0.00';
+
+    res.status(200).json({
+      groupId,
+      attendedLecturesCount,
+      notAttendedLecturesCount,
+      attendancePercentage,
+      lectures: response,
+    });
+
   } catch (error) {
-    console.error('Error fetching attended lectures:', error);
+    console.error('Error fetching attendance status:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-
-
-
-
-
-exports.getUserNotAttendedLecturesInGroup = async (req, res) => {
+exports.getUserAttendanceStatusByGroupId = async (req, res) => {
   try {
-    const { groupId } = req.params;
-    const userId = req.user.id;
+    const { userId, groupId } = req.params;
+    const adminId = req.user.id; 
+    const adminUser = await User.findById(adminId);
+    if (!adminUser || adminUser.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can access this information' });
+    }
+
+    const user = await User.findById(userId).select('groups');
+    if (!user || !user.groups || user.groups.length === 0) {
+      return res.status(404).json({ message: 'No groups found for this user' });
+    }
+
+    const isApprovedGroup = user.groups.some(
+      group => group.groupId.toString() === groupId && group.status === 'approved'
+    );
+
+    if (!isApprovedGroup) {
+      return res.status(404).json({ message: 'User is not approved in this group' });
+    }
+
+    const group = await Groups.findById(groupId).select('title');
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
 
     const lectures = await Lectures.find({ group_id: groupId })
-      .populate('attendees.userId', 'name email')
-      .select('title attendees');
+      .populate('attendees.userId', 'title email')
+      .select('title attendees group_id created_at');
 
     if (!lectures || lectures.length === 0) {
       return res.status(404).json({ message: 'No lectures found for this group' });
     }
 
-    const notAttendedLectures = lectures.filter((lecture) =>
-      !lecture.attendees.some((attendee) => attendee.userId._id.toString() === userId)
-    );
+    const groupedLectures = {
+      groupId,
+      groupName: group.title, 
+      groupLectures: [],
+      attendedLecturesCount: 0,
+      notAttendedLecturesCount: 0,
+    };
 
-    if (notAttendedLectures.length === 0) {
-      return res.status(404).json({ message: 'User has attended all lectures in this group' });
-    }
+    lectures.forEach(lecture => {
+      const attendee = lecture.attendees.find(
+        attendee => attendee.userId && attendee.userId._id.equals(userId)
+      );
 
-    const response = notAttendedLectures.map((lecture) => ({
-      title: lecture.title,
-      scheduledAt: lecture.created_at,
-    }));
+      const isAttended = !!attendee;
 
-    res.status(200).json({ notAttendedLectures: response });
+      if (isAttended) {
+        groupedLectures.attendedLecturesCount++;
+      } else {
+        groupedLectures.notAttendedLecturesCount++;
+      }
+
+      groupedLectures.groupLectures.push({
+        title: lecture.title,
+        attendedAt: isAttended ? attendee.attendedAt : 'N/A',
+        status: isAttended ? 'present' : 'absent',
+        scheduledAt: lecture.created_at,
+      });
+    });
+
+    const totalLectures = groupedLectures.attendedLecturesCount + groupedLectures.notAttendedLecturesCount;
+    groupedLectures.attendancePercentage = totalLectures > 0
+      ? ((groupedLectures.attendedLecturesCount / totalLectures) * 100).toFixed(2)
+      : '0.00';
+
+    res.status(200).json(groupedLectures);
+
   } catch (error) {
-    console.error('Error fetching non-attended lectures:', error);
+    console.error('Error fetching attendance status by group ID:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+exports.getLectureAttendanceDetails = async (req, res) => {
+  try {
+    const { lectureId } = req.params; 
+    const adminId = req.user.id; 
+    const adminUser = await User.findById(adminId);
+    if (!adminUser || adminUser.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can access this information' });
+    }
+
+    const lecture = await Lectures.findById(lectureId)
+      .populate('attendees.userId', 'name email') 
+      .select('title attendees group_id');
+
+    if (!lecture) {
+      return res.status(404).json({ message: 'Lecture not found' });
+    }
+
+    const groupMembers = await User.find({ 'groups.groupId': lecture.group_id }).select('name email ');
+
+    const attendedUsers = [];
+    const notAttendedUsers = [];
+
+    groupMembers.forEach((member) => {
+      const isAttended = lecture.attendees.some(
+        (attendee) => attendee.userId && attendee.userId._id.equals(member._id)
+      );
+
+      if (isAttended) {
+        attendedUsers.push({ name: member.name, email: member.email, userId: member._id, });
+      } else {
+        notAttendedUsers.push({ name: member.name, email: member.email , userId: member._id, });
+      }
+    });
+
+    res.status(200).json({
+      lectureId,
+      lectureTitle: lecture.title,
+      attendedUsers,
+      notAttendedUsers,
+    });
+  } catch (error) {
+    console.error('Error fetching lecture attendance details:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
 // delet lecture by id
 exports.deleteLecturesById = async (req, res) => {
   try {

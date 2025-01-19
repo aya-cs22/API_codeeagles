@@ -1,4 +1,6 @@
 const transporter = require('../config/mailConfig');
+const xss = require('xss');
+
 const jwt = require('jsonwebtoken');
 const User = require('../models/users');
 const crypto = require('crypto');
@@ -459,6 +461,10 @@ exports.forgotPassword = async (req, res) => {
 //         res.status(500).json({ message: 'Server error' });
 //     }
 // };
+
+
+
+
 exports.resetPassword = async (req, res) => {
     try {
 
@@ -539,7 +545,7 @@ exports.login = async (req, res) => {
             await user.save(); 
             return res.status(200).json({
                 message: 'Login successful. Fingerprint saved for future logins.',
-                token,  // أعد التوكن الجديد
+                token,  
             });
         }
         
@@ -573,72 +579,6 @@ exports.login = async (req, res) => {
 
 
 
-// // add user by admin
-// exports.addUser = async (req, res) => {
-//     const session = await mongoose.startSession();
-
-//     try {
-//         if (req.user.role !== 'admin') {
-//             return res.status(403).json({ message: 'Access denied. Admins only.' });
-//         }
-
-//         const { name, email, password, phone_number, role, groupId } = req.body;
-
-//         if (!name || !email || !password || !phone_number || !role) {
-//             return res.status(400).json({ message: 'All fields except groupId are required' });
-//         }
-
-//         const exists_user = await User.findOne({ email });
-//         if (exists_user) {
-//             return res.status(400).json({ message: 'User already exists' });
-//         }
-
-//         let group;
-//         if (groupId) {
-//             group = await Groups.findById(groupId);
-//             if (!group) {
-//                 return res.status(404).json({ message: 'Group not found' });
-//             }
-//         }
-
-//         await session.startTransaction();
-
-//         const newUser = new User({
-//             name,
-//             email,
-//             password,
-//             phone_number,
-//             role,
-//             isVerified: true,
-//             groups: group ? [{
-//                 groupId: groupId,
-//                 status: 'approved'
-//             }] : [],
-//         });
-
-//         await newUser.save({ session });
-
-//         if (group) {
-//             group.members.push({ user_id: newUser._id });
-//             await group.save({ session });
-//         }
-
-//         await session.commitTransaction();
-//         session.endSession();
-
-//         res.status(201).json({ message: 'User added successfully', user: newUser });
-//     } catch (error) {
-
-//         if (session.inTransaction()) {
-//             await session.abortTransaction();
-//         }
-//         session.endSession();
-
-//         console.error('Error adding user: ', error);
-//         res.status(500).json({ message: 'Server error' });
-//     }
-// };
-
 exports.addUser = async (req, res) => {
     const session = await mongoose.startSession();
 
@@ -653,8 +593,8 @@ exports.addUser = async (req, res) => {
             return res.status(400).json({ message: 'All fields except groupId are required' });
         }
 
-        const exists_user = await User.findOne({ email });
-        if (exists_user) {
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
             return res.status(400).json({ message: 'User already exists' });
         }
 
@@ -669,22 +609,23 @@ exports.addUser = async (req, res) => {
         await session.startTransaction();
 
         const newUser = new User({
-            name,
-            email,
-            password,
-            phone_number,
-            role,
+            name: xss(name),
+            email: xss(email),
+            password: password,
+            phone_number: xss(phone_number),
+            role: xss(role),
             isVerified: true,
             groups: group
                 ? [
                     {
                         groupId: groupId,
                         status: 'approved',
+                        attendancePercentage: 0,
+                        totalAttendance: 0, 
+                        totalAbsence: 0, 
                     },
                 ]
                 : [],
-            attendance: [],
-            totalAbsent: 0,
         });
 
         await newUser.save({ session });
@@ -694,14 +635,27 @@ exports.addUser = async (req, res) => {
             await group.save({ session });
 
             const lectures = await Lectures.find({ group_id: groupId });
-            for (const lecture of lectures) {
-                newUser.attendance.push({
+
+            let totalAbsence = 0;
+            const attendance = lectures.map((lecture) => {
+                totalAbsence += 1;
+                return {
                     lectureId: lecture._id,
                     attendanceStatus: 'absent',
                     attendedAt: null,
-                });
-                newUser.totalAbsent += 1;
-            }
+                };
+            });
+
+            const totalLectures = lectures.length;
+            const totalAttendance = totalLectures - totalAbsence;
+            const attendancePercentage = totalLectures > 0
+                ? ((totalAttendance / totalLectures) * 100).toFixed(2)
+                : '0.00';
+
+            newUser.groups[0].attendance = attendance;
+            newUser.groups[0].totalAbsence = totalAbsence;
+            newUser.groups[0].totalAttendance = totalAttendance;
+            newUser.groups[0].attendancePercentage = attendancePercentage;
 
             await newUser.save({ session });
         }
@@ -720,6 +674,11 @@ exports.addUser = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+
+
+
+
 
 
 // get user by token
@@ -966,57 +925,72 @@ exports.updateUserRole = async (req, res) => {
 
 exports.deleteUser = async (req, res) => {
     const session = await mongoose.startSession();
-    session.startTransaction();
 
     try {
+        await session.startTransaction();
+
         const { id } = req.params;
         const userIdFromToken = req.user.id;
         const userIdToDelete = id || userIdFromToken;
 
+        // التأكد من صلاحيات المستخدم
         if (req.user.role !== 'admin' && !id) {
             if (userIdFromToken !== userIdToDelete) {
                 return res.status(403).json({ message: 'Access denied' });
             }
         }
 
+        // التحقق من وجود المستخدم
         const user = await User.findById(userIdToDelete).session(session);
         if (!user) {
             await session.abortTransaction();
             return res.status(404).json({ message: 'User not found' });
         }
 
+        // تحديث المجموعات وحذف المستخدم من قائمة الأعضاء
         await Groups.updateMany(
             { "members.user_id": userIdToDelete },
             { $pull: { members: { user_id: userIdToDelete } } },
             { session }
         );
 
+        // تحديث المحاضرات وحذف المستخدم من المهام
         await Lectures.updateMany(
             { "tasks.submissions.userId": userIdToDelete },
             { $pull: { "tasks.$[].submissions": { userId: userIdToDelete } } },
             { session }
         );
 
+        // تحديث الحضور وحذف المستخدم من قائمة الحضور
         await Lectures.updateMany(
             { "attendees.userId": userIdToDelete },
             { $pull: { attendees: { userId: userIdToDelete } } },
             { session }
         );
 
+        // حذف المستخدم من قاعدة البيانات
         await User.findByIdAndDelete(userIdToDelete).session(session);
 
+        // إنهاء الجلسة بنجاح
         await session.commitTransaction();
 
-        return res.status(200).json({ message: 'User successfully deleted and removed from all groups, lectures, and submissions' });
+        return res.status(200).json({ 
+            message: 'User successfully deleted and removed from all groups, lectures, and submissions' 
+        });
 
     } catch (error) {
-        await session.abortTransaction();
-        console.error(error);
+        // التراجع عن الجلسة في حالة وجود خطأ
+        if (session.inTransaction()) {
+            await session.abortTransaction();
+        }
+        console.error('Error deleting user: ', error);
         res.status(500).json({ message: 'Server error' });
     } finally {
+        // إنهاء الجلسة
         session.endSession();
     }
 };
+
 
 
 exports.submitFeedback = async (req, res) => {
@@ -1337,6 +1311,11 @@ exports.joinGroupRequest = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
+        // Ensure user.groups is always an array
+        if (!user.groups) {
+            user.groups = [];
+        }
+
         const group = await Groups.findById(groupId);
         if (!group) {
             return res.status(404).json({ message: 'Group not found' });
@@ -1441,6 +1420,7 @@ exports.joinGroupRequest = async (req, res) => {
 
 
 
+
 exports.getPendingJoinRequestsByGroup = async (req, res) => {
     try {
         if (req.user.role !== 'admin') {
@@ -1496,53 +1476,60 @@ exports.acceptJoinRequest = async (req, res) => {
             return res.status(404).json({ message: 'User or Group not found' });
         }
 
-        const userRequest = user.groups.find((group) => group.groupId.toString() === groupId);
+        const userRequest = user.groups.find((g) => g.groupId.toString() === groupId);
         if (!userRequest || userRequest.status !== 'pending') {
             return res.status(400).json({ message: 'No pending request found for this group' });
         }
 
         userRequest.status = 'approved';
 
-        const lectures = await Lectures.find({ group_id: groupId });
-        for (const lecture of lectures) {
-            const alreadyAttended = user.attendance.some(
-                (att) => att.lectureId.toString() === lecture._id.toString()
-            );
-            if (!alreadyAttended) {
-                user.attendance.push({
-                    lectureId: lecture._id,
-                    attendanceStatus: 'absent',
-                    attendedAt: null,
-                });
-                user.totalAbsent += 1;
-            }
-        }
-
-        await user.save();
-
         group.members.push({ user_id: user._id });
-        await group.save();
 
+        const lectures = await Lectures.find({ group_id: groupId });
+
+        let totalAbsence = 0;
+        const attendance = lectures.map((lecture) => {
+            totalAbsence += 1;
+            return {
+                lectureId: lecture._id,
+                attendanceStatus: 'absent',
+                attendedAt: null,
+            };
+        });
+
+        const totalLectures = lectures.length;
+        const totalAttendance = totalLectures - totalAbsence;
+        const attendancePercentage = totalLectures > 0
+            ? ((totalAttendance / totalLectures) * 100).toFixed(2)
+            : '0.00';
+
+        userRequest.attendance = attendance;
+        userRequest.totalAbsence = totalAbsence;
+        userRequest.totalAttendance = totalAttendance;
+        userRequest.attendancePercentage = attendancePercentage;
+
+        await user.save(); 
+        await group.save(); 
         const mailOptions = {
             from: process.env.ADMIN_EMAIL,
             to: user.email,
             subject: '🎉 Your Join Request Has Been Approved!',
             html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-            <header style="background-color: #4CAF50; padding: 20px; text-align: center; color: white;">
-              <h1 style="margin: 0; font-size: 24px;">Welcome to the ${group.title} Group!</h1>
-            </header>
-            <div style="padding: 20px; background-color: #f9f9f9;">
-              <h2 style="font-size: 20px; color: #333;">Hello, ${user.name}!</h2>
-              <p style="color: #555;">We are pleased to inform you that your request to join the group <strong>"${group.title}"</strong> has been approved. You are now part of our amazing community!</p>
-              <p style="color: #555;">We are excited to have you on board and look forward to your contributions. If you have any questions or need help, feel free to reach out to us.</p>
-              <p style="margin-top: 20px; color: #555;">Best regards,<br>The Team</p>
-            </div>
-            <footer style="background-color: #f1f1f1; padding: 10px; text-align: center; color: #777; font-size: 14px;">
-              <p style="margin: 0;">Need help? Contact us at <a href="mailto:codeeagles653@gmail.com" style="color: #4CAF50; text-decoration: none;">codeeagles653@gmail.com</a></p>
-            </footer>
-          </div>
-        `,
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    <header style="background-color: #4CAF50; padding: 20px; text-align: center; color: white;">
+                        <h1 style="margin: 0; font-size: 24px;">Welcome to the ${group.title} Group!</h1>
+                    </header>
+                    <div style="padding: 20px; background-color: #f9f9f9;">
+                        <h2 style="font-size: 20px; color: #333;">Hello, ${user.name}!</h2>
+                        <p style="color: #555;">We are pleased to inform you that your request to join the group <strong>"${group.title}"</strong> has been approved. You are now part of our amazing community!</p>
+                        <p style="color: #555;">We are excited to have you on board and look forward to your contributions. If you have any questions or need help, feel free to reach out to us.</p>
+                        <p style="margin-top: 20px; color: #555;">Best regards,<br>The Team</p>
+                    </div>
+                    <footer style="background-color: #f1f1f1; padding: 10px; text-align: center; color: #777; font-size: 14px;">
+                        <p style="margin: 0;">Need help? Contact us at <a href="mailto:codeeagles653@gmail.com" style="color: #4CAF50; text-decoration: none;">codeeagles653@gmail.com</a></p>
+                    </footer>
+                </div>
+            `,
         };
 
         transporter.sendMail(mailOptions, (error, info) => {
@@ -1558,6 +1545,11 @@ exports.acceptJoinRequest = async (req, res) => {
         return res.status(500).json({ message: 'Server error' });
     }
 };
+
+
+
+
+
 
 
 exports.rejectJoinRequest = async (req, res) => {
@@ -1621,7 +1613,7 @@ exports.rejectJoinRequest = async (req, res) => {
                 return res.status(500).json({ message: 'Error sending email' });
             }
             console.log('Email sent:', info.response);
-            return res.status(200).json({ message: 'Join request approved successfully' });
+            return res.status(200).json({ message: 'Join request reject successfully' });
         });
 
 
@@ -1702,120 +1694,41 @@ exports.leaveGroup = async (req, res) => {
 
 
 
-exports.updateJoinRequestStatus = async (req, res) => {
+
+
+exports.setRoleToPending = async (req, res) => {
     try {
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'Access denied. Admins only.' });
-        }
-
-        const { groupId, userId } = req.params;
-        const { status } = req.body;
-        const group = await Groups.findById(groupId);
-
-        if (status !== 'approved' && status !== 'rejected') {
-            return res.status(400).json({ message: 'Invalid status. It must be "approved" or "rejected".' });
-        }
-
-        const user = await User.findOne({
-            _id: userId,
-            "groups.groupId": groupId
-        });
-
+        const { userId, groupId } = req.params; 
+        const adminId = req.user.id;
+        const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        let mailOptions = {
-            from: process.env.ADMIN_EMAIL,
-            to: user.email,
-            subject: '',
-            html: ''
-        };
-
-        // Handle rejected status
-        if (status === 'rejected') {
-            await Groups.updateOne(
-                { _id: groupId },
-                { $pull: { members: { user_id: userId } } }
-            );
-
-            await User.updateOne(
-                { _id: userId, "groups.groupId": groupId },
-                { $pull: { groups: { groupId: groupId } } }
-            );
-
-            // Email content for rejection
-            mailOptions.subject = '❌ Your Join Request Has Been Rejected';
-            mailOptions.html = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                    <header style="background-color: #FF6347; padding: 20px; text-align: center; color: white;">
-                        <h1 style="margin: 0; font-size: 24px;">Your Request Has Been Rejected</h1>
-                    </header>
-                    <div style="padding: 20px; background-color: #f9f9f9;">
-                        <h2 style="font-size: 20px; color: #333;">Hello, ${user.name}!</h2>
-                        <p style="color: #555;">We regret to inform you that your request to join the group <strong>"${group.title}"</strong> has been rejected.</p>
-                        <p style="color: #555;">If you have any questions or concerns, please feel free to reach out to us. We are here to assist you.</p>
-                        <p style="margin-top: 20px; color: #555;">Best regards,<br>The Team</p>
-                    </div>
-                    <footer style="background-color: #f1f1f1; padding: 10px; text-align: center; color: #777; font-size: 14px;">
-                        <p style="margin: 0;">Need help? Contact us at <a href="mailto:codeeagles653@gmail.com" style="color:  #FF6347; text-decoration: none;">codeeagles653@gmail.com</a></p>
-                    </footer>
-                </div>
-            `;
+        const adminUser = await User.findById(adminId);
+        if (!adminUser || adminUser.role !== 'admin') {
+            return res.status(403).json({ message: 'You do not have permission to perform this action' });
         }
 
-        // Handle approved status
-        if (status === 'approved') {
-            // Check if user is already approved
-            const isAlreadyApproved = user.groups.some(group => group.groupId.toString() === groupId && group.status === 'approved');
-
-            if (isAlreadyApproved) {
-                return res.status(400).json({ message: 'User has already been approved for this group' });
-            }
-
-            await Groups.updateOne(
-                { _id: groupId },
-                { $addToSet: { members: { user_id: userId } } }
-            );
-
-            await User.updateOne(
-                { _id: userId, "groups.groupId": groupId },
-                { $set: { "groups.$.status": 'approved' } }
-            );
-
-            // Email content for approval
-            mailOptions.subject = '🎉 Your Join Request Has Been Approved!';
-            mailOptions.html = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                    <header style="background-color: #4CAF50; padding: 20px; text-align: center; color: white;">
-                        <h1 style="margin: 0; font-size: 24px;">Welcome to the ${group.title} Group!</h1>
-                    </header>
-                    <div style="padding: 20px; background-color: #f9f9f9;">
-                        <h2 style="font-size: 20px; color: #333;">Hello, ${user.name}!</h2>
-                        <p style="color: #555;">We are pleased to inform you that your request to join the group <strong>"${group.title}"</strong> has been approved. You are now part of our amazing community!</p>
-                        <p style="color: #555;">We are excited to have you on board and look forward to your contributions. If you have any questions or need help, feel free to reach out to us.</p>
-                        <p style="margin-top: 20px; color: #555;">Best regards,<br>The Team</p>
-                    </div>
-                    <footer style="background-color: #f1f1f1; padding: 10px; text-align: center; color: #777; font-size: 14px;">
-                        <p style="margin: 0;">Need help? Contact us at <a href="mailto:codeeagles653@gmail.com" style="color:  #4CAF50; text-decoration: none;">codeeagles653@gmail.com</a></p>
-                    </footer>
-                </div>
-            `;
+        const group = user.groups.find(g => g.groupId.toString() === groupId);
+        if (!group) {
+            return res.status(404).json({ message: 'Group not found in user\'s groups' });
         }
 
-        // Send email
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.error('Error sending email:', error);
-                return res.status(500).json({ message: 'Error sending email' });
-            }
-            console.log('Email sent:', info.response);
-            return res.status(200).json({ message: `Request ${status} successfully` });
+        if (group.status === 'approved' || group.status === 'rejected') {
+            group.status = 'pending'; 
+        } else {
+            return res.status(400).json({ message: 'Group status is not in approved or rejected state' });
+        }
+
+        await user.save();
+
+        res.status(200).json({
+            message: 'User group status updated to pending',
+            group
         });
-
     } catch (error) {
-        console.error('Error in updating join request status:', error);
-        return res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Error updating user group status', error: error.message });
     }
 };
 

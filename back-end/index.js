@@ -12,6 +12,8 @@ const cron = require('node-cron');
 const Groups = require('./models/groups.js');
 const validator = require('validator');
 const cookieParser = require('cookie-parser');
+
+const redisClient = require('./utils/cache/redisClient'); 
 // Connect with DB
 dbConnection();
 
@@ -44,7 +46,13 @@ app.use('/api/groups', groupsRoutes);
 app.use('/api/lectures', lectureRoutes);
 app.use('/api/contact', contactusRoutes);
 
+redisClient.on('connect', () => {
+    console.log('Connected to Redis');
+});
 
+redisClient.on('error', (err) => {
+    console.error('Redis error:', err);
+});
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);

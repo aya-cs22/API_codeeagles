@@ -41,11 +41,12 @@ router.post('/joinGroupRequest', authMiddleware, userController.joinGroupRequest
 router.get('/pending-join-requests/:groupId', authMiddleware, userController.getPendingJoinRequestsByGroup);
 
 router.post('/accept-join-request', authMiddleware, userController.acceptJoinRequest);
-router.put('/update-join-request/:groupId/:userId', authMiddleware, userController.updateJoinRequestStatus);
+router.put('/set-role-to-pending/:userId/:groupId', authMiddleware, userController.setRoleToPending);
 
 router.post('/reject-join-request', authMiddleware, userController.rejectJoinRequest);
 
 
+router.post('/leave-group', authMiddleware, userController.leaveGroup);
 
 
 module.exports = router; 
