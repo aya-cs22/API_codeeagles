@@ -1086,11 +1086,11 @@ exports.submitTask = async (req, res) => {
       return res.status(400).json({ message: 'Invalid URL format' });
     }
     submissionLink = xss(submissionLink);
-    const allowedDomain = 'drive.google.com';
+    const allowedDomains = ['drive.google.com', 'github.com'];
     const url = new URL(submissionLink);
 
-    if (url.hostname !== allowedDomain) {
-      return res.status(400).json({ message: 'Only Google Drive links are allowed' });
+    if (!allowedDomains.includes(url.hostname)) {
+      return res.status(400).json({ message: 'Only Google Drive or GitHub links are allowed' });
     }
 
     if (!submissionLink.startsWith('https://')) {
