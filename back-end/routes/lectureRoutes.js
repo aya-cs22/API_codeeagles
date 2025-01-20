@@ -22,7 +22,7 @@ router.put('/:lectureId/edit-task/:taskId', authMiddleware, lecturesController.u
 router.get('/:lectureId/tasks/:taskId', authMiddleware, lecturesController.getTaskById);
 router.get('/:lectureId/get-tasks', authMiddleware, lecturesController.getAllTasksByLectureId);
 router.post('/:lectureId/submit-task/:taskId', authMiddleware,lecturesValidator,  lecturesController.submitTask);
-router.post('/:lectureId/tasks/:taskId/submissions/:userId/evaluate', authMiddleware, lecturesController.addScoreAndFeedback);
+router.put('/:lectureId/tasks/:taskId/submissions/:userId/evaluate', authMiddleware, lecturesController.addScoreAndFeedback);
 router.get('/groups/:groupId/tasks', authMiddleware, lecturesController.getUserTasksByGroupId);
 router.get('/:lectureId/tasks/:taskId/submissions', authMiddleware, lecturesController.getTaskSubmissions);
 
