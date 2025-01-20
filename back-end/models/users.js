@@ -93,7 +93,22 @@ const userSchema = new mongoose.Schema({
       attendancePercentage: {
         type: Number,
         default: 0, 
-      }
+      },
+      tasks: [ // Adding tasks inside the group
+        {
+          taskId: mongoose.Schema.Types.ObjectId,
+          taskName: String,
+          submissionLink: String,
+          submittedOnTime: Boolean,
+          submittedAt: Date,
+          score: Number,
+          feedback: String,
+        },
+      ],
+      totalScore: {
+        type: Number,
+        default: 0, 
+      },
     }
   ],
 
@@ -120,17 +135,6 @@ const userSchema = new mongoose.Schema({
     default: null
   },
 
-  tasks: [
-    {
-      lectureId: mongoose.Schema.Types.ObjectId,
-      taskId: mongoose.Schema.Types.ObjectId,
-      submissionLink: String,
-      submittedOnTime: Boolean,
-      submittedAt: Date,
-      score: Number,
-      feedback: String,
-    },
-  ],
 
   // message: {
   //   type: String,
