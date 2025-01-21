@@ -36,7 +36,7 @@ const escapeHtml = (str) => {
             '>': '&gt;',
             '"': '&quot;',
             "'": '&#039;',
-            '/': '&#x2F;',
+            // '/': '&#x2F;',
         };
         return map[match];
     });

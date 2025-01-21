@@ -34,5 +34,4 @@ router.get('/:lectureId/get-lecture-attendance-details', authMiddleware, lecture
 router.get('/:groupId/:userId/get-user-tasks-in-group', authMiddleware, lecturesController.getUserTasksInGroup);
 
 
-
 module.exports = router;
