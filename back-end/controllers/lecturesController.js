@@ -1078,6 +1078,11 @@ exports.submitTask = async (req, res) => {
       return res.status(404).json({ message: 'Task not found' });
     }
 
+    const userGroup = user.groups.find(group => group.groupId.toString() === lecture.group_id.toString());
+    if (!userGroup || userGroup.status !== 'approved') {
+      return res.status(403).json({ message: 'User is not approved in this group' });
+    }
+
     if (currentDate > new Date(task.end_date)) {
       return res.status(403).json({ message: 'Task submission is no longer allowed as the deadline has passed' });
     }
@@ -1086,9 +1091,9 @@ exports.submitTask = async (req, res) => {
       return res.status(400).json({ message: 'Invalid URL format' });
     }
     submissionLink = xss(submissionLink);
+
     const allowedDomains = ['drive.google.com', 'github.com'];
     const url = new URL(submissionLink);
-
     if (!allowedDomains.includes(url.hostname)) {
       return res.status(400).json({ message: 'Only Google Drive or GitHub links are allowed' });
     }
@@ -1113,29 +1118,23 @@ exports.submitTask = async (req, res) => {
       });
     }
 
-    const userTask = user.groups
-      .flatMap(group => group.tasks)
-      .find(t => t.taskId.toString() === taskId);
-    
+    const userTask = userGroup.tasks.find(t => t.taskId.toString() === taskId);
     if (userTask) {
       userTask.submissionLink = submissionLink;
       userTask.submittedAt = currentDate;
       userTask.submittedOnTime = currentDate <= new Date(task.end_date);
     } else {
-      user.groups.forEach(group => {
-        group.tasks.push({
-          taskId: taskId,
-          submissionLink: submissionLink,
-          submittedAt: currentDate,
-          submittedOnTime: currentDate <= new Date(task.end_date),
-          score: null,
-          feedback: null,
-        });
+      userGroup.tasks.push({
+        taskId: taskId,
+        submissionLink: submissionLink,
+        submittedAt: currentDate,
+        submittedOnTime: currentDate <= new Date(task.end_date),
+        score: null,
+        feedback: null,
       });
     }
 
     await user.save();
-
     lecture.updated_at = Date.now();
     await lecture.save();
 
@@ -1145,7 +1144,6 @@ exports.submitTask = async (req, res) => {
     return res.status(500).json({ message: 'Server error' });
   }
 };
-
 
 
 
@@ -1214,8 +1212,8 @@ exports.addScoreAndFeedback = async (req, res) => {
     }
 
     const userGroup = user.groups.find(group => group.groupId.toString() === lecture.group_id.toString());
-    if (!userGroup) {
-      return res.status(404).json({ message: 'User is not part of this group' });
+    if (!userGroup || userGroup.status !== 'approved') {
+      return res.status(403).json({ message: 'User is not approved in this group' });
     }
 
     const userTask = userGroup.tasks.find(t => t.taskId.toString() === taskId);
