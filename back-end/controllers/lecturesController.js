@@ -1147,6 +1147,40 @@ exports.submitTask = async (req, res) => {
 
 
 
+exports.getUserTasksInGroup = async (req, res) => {
+  try {
+    const { groupId, userId } = req.params;
+
+    const group = await Groups.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    const currentUser = await User.findById(req.user.id);
+    const isAdmin = currentUser.role === 'admin' || group.admin.toString() === req.user.id;
+
+    if (!isAdmin) {
+      return res.status(403).json({ message: 'Access denied: You are not an admin of this group' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const userGroup = user.groups.find(g => g.groupId.toString() === groupId);
+    if (!userGroup) {
+      return res.status(404).json({ message: 'User is not a member of this group' });
+    }
+
+    const tasks = userGroup.tasks;
+
+    return res.status(200).json({ tasks });
+  } catch (error) {
+    console.error('Error fetching user tasks:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
 
 
 const updateTotalScore = async (userId, groupId) => {
@@ -1392,15 +1426,12 @@ exports.deleteTask = async (req, res) => {
   try {
     const { lectureId, taskId } = req.params;
 
-    // التحقق من صحة lectureId و taskId
     if (!mongoose.Types.ObjectId.isValid(lectureId) || !mongoose.Types.ObjectId.isValid(taskId)) {
       return res.status(400).json({ message: 'Invalid lectureId or taskId' });
     }
 
-    // بدء المعاملة (Transaction)
     session.startTransaction();
 
-    // البحث عن المحاضرة
     const lecture = await Lectures.findById(lectureId).session(session);
     if (!lecture) {
       await session.abortTransaction();
@@ -1408,7 +1439,6 @@ exports.deleteTask = async (req, res) => {
       return res.status(404).json({ message: 'Lecture not found' });
     }
 
-    // البحث عن المهمة في المحاضرة
     const taskIndex = lecture.tasks.findIndex(task => task._id.toString() === taskId);
     if (taskIndex === -1) {
       await session.abortTransaction();
@@ -1416,27 +1446,23 @@ exports.deleteTask = async (req, res) => {
       return res.status(404).json({ message: 'Task not found in this lecture' });
     }
 
-    // الحصول على معرفات المستخدمين الذين قدموا هذه المهمة (إن وجدت)
     const task = lecture.tasks[taskIndex];
     const submissionUserIds = task.submissions.map(submission => submission.userId);
 
-    // حذف المهمة من المحاضرة
     lecture.tasks.splice(taskIndex, 1);
     await lecture.save({ session });
 
-    // حذف المهمة من سكيما اليوزر (User Schema) لكل مستخدم في المجموعة
-    const groupId = lecture.group_id; // معرف المجموعة المرتبطة بالمحاضرة
+    const groupId = lecture.group_id;
 
     await User.updateMany(
-      { 'groups.groupId': groupId }, // البحث عن جميع المستخدمين في المجموعة
-      { $pull: { 'groups.$[group].tasks': { taskId: new mongoose.Types.ObjectId(taskId) } } }, // حذف المهمة
+      { 'groups.groupId': groupId }, 
+      { $pull: { 'groups.$[group].tasks': { taskId: new mongoose.Types.ObjectId(taskId) } } },
       {
         session,
-        arrayFilters: [{ 'group.groupId': groupId }], // تحديد المجموعة الصحيحة
+        arrayFilters: [{ 'group.groupId': groupId }],
       }
     );
 
-    // تأكيد المعاملة (Commit Transaction)
     await session.commitTransaction();
     session.endSession();
 
@@ -1444,7 +1470,6 @@ exports.deleteTask = async (req, res) => {
   } catch (error) {
     console.error('Error deleting task:', error);
 
-    // إلغاء المعاملة (Abort Transaction) في حالة حدوث خطأ
     await session.abortTransaction();
     session.endSession();
 
