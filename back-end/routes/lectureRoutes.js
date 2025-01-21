@@ -31,7 +31,7 @@ router.delete('/:lectureId/tasks/:taskId', authMiddleware, lecturesController.de
 router.get('/:groupId/get-user-attendance-status-in-group', authMiddleware, lecturesController.getUserAttendanceStatusInGroup);
 router.get('/:userId/:groupId/attendance-by-admin', authMiddleware, lecturesController.getUserAttendanceStatusByGroupId);
 router.get('/:lectureId/get-lecture-attendance-details', authMiddleware, lecturesController.getLectureAttendanceDetails);
-router.get('/:userId/:groupId/getUserTasksInGroup', authMiddleware, lecturesController.getUserTasksInGroup);
+router.get('/:groupId/:userId/get-user-tasks-in-group', authMiddleware, lecturesController.getUserTasksInGroup);
 
 
 
