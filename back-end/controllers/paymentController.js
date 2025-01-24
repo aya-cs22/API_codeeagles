@@ -35,7 +35,7 @@ async function initiatePayment(req, res) {
         res.json({
             success: true,
             paymentKey: paymentKey,
-            paymentUrl: `https://accept.paymobsolutions.com/api/acceptance/iframes/4916324?payment_token=${paymentKey}`
+            paymentUrl: `https://accept.paymobsolutions.com/api/acceptance/iframes/${process.env.PAYMOB_INTEGRATION_ID}?payment_token=${paymentKey}`
         });
     } catch (error) {
         res.status(500).json({
