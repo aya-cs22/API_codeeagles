@@ -25,7 +25,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     minlength: [10, 'too short password'],
-    maxlength: [255, 'Password cannot be longer than 255 characters'], 
   },
 
   isVerified: {
