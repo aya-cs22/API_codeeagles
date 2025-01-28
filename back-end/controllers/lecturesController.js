@@ -928,7 +928,7 @@ exports.updateTaskInLecture = async (req, res) => {
 
     console.log('Approved users:', approvedUsers);
 
-    const emailAddresses = approvedUsers.map(user => user.email);
+  /*  const emailAddresses = approvedUsers.map(user => user.email);
 
     if (emailAddresses.length === 0) {
       console.log('No approved users to notify');
@@ -968,7 +968,7 @@ exports.updateTaskInLecture = async (req, res) => {
         }
       });
     }
-
+*/
     return res.status(200).json({ message: 'Task updated successfully', task });
   } catch (error) {
     console.error(error);
