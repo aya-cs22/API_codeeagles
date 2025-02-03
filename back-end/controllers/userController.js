@@ -214,7 +214,7 @@ exports.register = async (req, res) => {
 
         if (user) {
             if (user.isVerified) {
-                return res.status(400).json({ message: 'User already exists and is verified' });
+                return res.status(409).json({ message: 'User already exists and is verified' });
             } else {
                 user.emailVerificationCode = generateVerificationCode();
                 user.verificationCodeExpiry = new Date(Date.now() + EMAIL_VERIFICATION_TIMEOUT);
