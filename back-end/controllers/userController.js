@@ -513,9 +513,8 @@ exports.resetPassword = async (req, res) => {
 
 
 
-
 exports.login = async (req, res) => {
-    const { email, password, fingerprint } = req.body;
+    const { email, password } = req.body;
 
     try {
         const user = await User.findOne({ email });
@@ -532,27 +531,27 @@ exports.login = async (req, res) => {
             return res.status(400).json({ message: 'Please verify your email first' });
         }
 
-        if (!user.fingerprint) {
-            user.fingerprint = fingerprint; 
+        // if (!user.fingerprint) {
+        //     user.fingerprint = fingerprint; 
             
-            const token = jwt.sign(
-                { id: user._id, role: user.role },
-                process.env.JWT_SECRET,
-                { expiresIn: '3h' }
-            );
-            user.lastToken = token; 
+        //     const token = jwt.sign(
+        //         { id: user._id, role: user.role },
+        //         process.env.JWT_SECRET,
+        //         { expiresIn: '3h' }
+        //     );
+        //     user.lastToken = token; 
         
-            await user.save(); 
-            return res.status(200).json({
-                message: 'Login successful. Fingerprint saved for future logins.',
-                token,  
-            });
-        }
+        //     await user.save(); 
+        //     return res.status(200).json({
+        //         message: 'Login successful. Fingerprint saved for future logins.',
+        //         token,  
+        //     });
+        // }
         
 
-        //if (user.role !== 'admin' && user.fingerprint !== fingerprint) {
-     //     return res.status(400).json({ message: 'Fingerprint mismatch. Login denied.' });
-     //   }
+        // if (user.role !== 'admin' && user.fingerprint !== fingerprint) {
+        //     return res.status(400).json({ message: 'Fingerprint mismatch. Login denied.' });
+        // }
 
         const token = jwt.sign(
             { id: user._id, role: user.role },
@@ -576,7 +575,6 @@ exports.login = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
-
 
 
 exports.addUser = async (req, res) => {
