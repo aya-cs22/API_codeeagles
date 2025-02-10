@@ -76,187 +76,6 @@ exports.register =asyncHandler (async (req, res) => {
             
             await user.save();
 
-<<<<<<< HEAD
-//     try {
-//         let { name, email, password, phone_number, fingerprint } = req.body;
-//         name = escapeHtml(name);
-//         email = escapeHtml(email);
-//         phone_number = escapeHtml(phone_number);
-//         password = escapeHtml(password);
-//         // Check if the user exists
-//         let user = await User.findOne({ email });
-//         // let token;
-//         if (user) {
-//             if (user.isVerified) {
-//                 return res.status(400).json({ message: 'User already exists and is verified' });
-//             } else {
-//                 user.emailVerificationCode = generateVerificationCode();
-//                 user.verificationCodeExpiry = new Date(Date.now() + EMAIL_VERIFICATION_TIMEOUT);
-//                 // token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '10m' });
-//                 const token = jwt.sign(
-//                     { id: user._id, role: user.role },
-//                     process.env.JWT_SECRET,
-//                     { expiresIn: '3h' }
-//                 );
-//                 user.lastToken = token;
-//                 await user.save();
-
-//                 const mailOptions = {
-//                     from: process.env.ADMIN_EMAIL,
-//                     to: user.email,
-//                     subject: '🔑 Email Verification Code from Code Eagles',
-//                     html: `
-//                       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-//                         <header style="background-color: #4CAF50; padding: 20px; text-align: center; color: white;">
-//                           <h1 style="margin: 0; font-size: 24px;">Welcome to Code Eagles! 🦅</h1>
-//                         </header>
-//                         <div style="padding: 20px; background-color: #f9f9f9;">
-//                           <h2 style="font-size: 20px; color: #333;">Hello, ${user.name}!</h2>
-//                           <p style="color: #555;">To complete your registration, please verify your email address using the code below:</p>
-//                           <div style="text-align: center; margin: 20px 0; padding: 15px; background-color: #e1f5e1; border: 1px solid #ddd; border-radius: 5px;">
-//                             <p style="font-size: 1.5em; font-weight: bold; color: #4CAF50;">${user.emailVerificationCode}</p>
-//                           </div>
-//                           <p style="color: #555;">This code is valid for the next 10 minutes. If you didn’t request this email, please ignore it.</p>
-//                           <p style="margin-top: 20px; color: #555;">Happy Coding!<br>The Code Eagles Team</p>
-//                         </div>
-//                         <footer style="background-color: #f1f1f1; padding: 10px; text-align: center; color: #777; font-size: 14px;">
-//                           <p>If you have any issues, feel free to <a href="mailto:codeeagles653@gmail.com" style="color: #4CAF50;">contact us</a>.</p>
-//                         </footer>
-//                       </div>
-//                     `
-//                 };
-
-
-//                 // res.cookie('token', token, {
-//                 //     httpOnly: true,
-//                 //     // secure: process.env.NODE_ENV === 'production',
-//                 //     secure: false,
-//                 //     maxAge: 10 * 60 * 1000,
-//                 // });
-//                 await transporter.sendMail(mailOptions);
-//                 return res.status(200).json({ message: 'Verification code resent. Please verify your email.', token });
-//             }
-//         }
-
-//         const role = email === process.env.ADMIN_EMAIL ? 'admin' : 'user';
-
-
-
-
-
-//         // Create a new user instance
-//         const newUser = new User({
-//             name,
-//             email,
-//             phone_number,
-//             password,
-//             isVerified: false,
-//             groupId: [],
-//             emailVerificationCode: generateVerificationCode(),
-//             verificationCodeExpiry: new Date(Date.now() + EMAIL_VERIFICATION_TIMEOUT),
-//             fingerprint
-//         });
-//         // token = jwt.sign({ id: newUser._id, email: newUser.email }, process.env.JWT_SECRET, { expiresIn: '10m' });
-     
-//         newUser.lastToken = token;
-//         console.log(newUser);
-//         await newUser.save();
-
-//         // Send verification email
-//         const mailOptions = {
-//             from: process.env.ADMIN_EMAIL,
-//             to: newUser.email,
-//             subject: '🔑 Email Verification Code from Code Eagles',
-//             html: `
-//               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-//                 <header style="background-color: #4CAF50; padding: 20px; text-align: center; color: white;">
-//                   <h1 style="margin: 0; font-size: 24px;">Welcome to Code Eagles! 🦅</h1>
-//                 </header>
-//                 <div style="padding: 20px; background-color: #f9f9f9;">
-//                   <h2 style="font-size: 20px; color: #333;">Hello, ${newUser.name}!</h2>
-//                   <p style="color: #555;">To complete your registration, please verify your email address using the code below:</p>
-//                   <div style="text-align: center; margin: 20px 0; padding: 15px; background-color: #e1f5e1; border: 1px solid #ddd; border-radius: 5px;">
-//                     <p style="font-size: 1.5em; font-weight: bold; color: #4CAF50;">${newUser.emailVerificationCode}</p>
-//                   </div>
-//                   <p style="color: #555;">This code is valid for the next 10 minutes. If you didn’t request this email, please ignore it.</p>
-//                   <p style="margin-top: 20px; color: #555;">Happy Coding!<br>The Code Eagles Team</p>
-//                 </div>
-//                 <footer style="background-color: #f1f1f1; padding: 10px; text-align: center; color: #777; font-size: 14px;">
-//                   <p>If you have any issues, feel free to <a href="codeeagles653@gmail.com" style="color: #4CAF50;">contact us</a>.</p>
-//                 </footer>
-//               </div>
-//             `
-//         };
-
-//         await transporter.sendMail(mailOptions);
-//         // res.cookie('token', token, {
-//         //     httpOnly: true,
-//         //     // secure: process.env.NODE_ENV === 'production',
-//         //     secure:false,
-//         //     maxAge: 10 * 60 * 1000,
-//         // });
-//         res.status(200).json({ message: 'Registration successful, please verify your email', token });
-//     } catch (error) {
-//         console.error('Registration error:', error);
-//         res.status(500).json({ message: 'Server error' });
-//     }
-// };
-
-
-exports.register = async (req, res) => {
-    await body('email').isEmail().withMessage('Invalid email format').run(req);
-    await body('password').isLength({ min: 10 }).withMessage('Password must be at least 10 characters long').run(req);
-    await body('phone_number').isMobilePhone().withMessage('Invalid phone number').run(req);
-    await body('name').isLength({ min: 3 }).withMessage('Name must be at least 3 characters long').run(req);
-
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
-    try {
-        let { name, email, password, phone_number, fingerprint } = req.body;
-        name = escapeHtml(name);
-        email = escapeHtml(email);
-        phone_number = escapeHtml(phone_number);
-        password = escapeHtml(password);
-
-        // Check if the user exists
-        let user = await User.findOne({ email });
-
-        if (user) {
-            if (user.isVerified) {
-                return res.status(409).json({ message: 'User already exists and is verified' });
-            } else {
-                user.emailVerificationCode = generateVerificationCode();
-                user.verificationCodeExpiry = new Date(Date.now() + EMAIL_VERIFICATION_TIMEOUT);
-
-                const token = jwt.sign(
-                    { id: user._id, role: user.role },
-                    process.env.JWT_SECRET,
-                    { expiresIn: '10m' }
-                );
-                user.lastToken = token;
-                await user.save();
-
-                const mailOptions = {
-                    from: process.env.ADMIN_EMAIL,
-                    to: user.email,
-                    subject: '🔑 Email Verification Code from Code Eagles',
-                    html: `
-                      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                        <header style="background-color: #4CAF50; padding: 20px; text-align: center; color: white;">
-                          <h1 style="margin: 0; font-size: 24px;">Welcome to Code Eagles! 🦅</h1>
-                        </header>
-                        <div style="padding: 20px; background-color: #f9f9f9;">
-                          <h2 style="font-size: 20px; color: #333;">Hello, ${user.name}!</h2>
-                          <p style="color: #555;">To complete your registration, please verify your email address using the code below:</p>
-                          <div style="text-align: center; margin: 20px 0; padding: 15px; background-color: #e1f5e1; border: 1px solid #ddd; border-radius: 5px;">
-                            <p style="font-size: 1.5em; font-weight: bold; color: #4CAF50;">${user.emailVerificationCode}</p>
-                          </div>
-                          <p style="color: #555;">This code is valid for the next 10 minutes. If you didn’t request this email, please ignore it.</p>
-                          <p style="margin-top: 20px; color: #555;">Happy Coding!<br>The Code Eagles Team</p>
-=======
             const mailOptions = {
                 from: process.env.ADMIN_EMAIL,
                 to: user.email,
@@ -271,7 +90,6 @@ exports.register = async (req, res) => {
                         <p style="color: #555;">To complete your registration, please verify your email address using the code below:</p>
                         <div style="text-align: center; margin: 20px 0; padding: 15px; background-color: #e1f5e1; border: 1px solid #ddd; border-radius: 5px;">
                         <p style="font-size: 1.5em; font-weight: bold; color: #4CAF50;">${user.emailVerificationCode}</p>
->>>>>>> 7bc10a1 (update)
                         </div>
                         <p style="color: #555;">This code is valid for the next 10 minutes. If you didn’t request this email, please ignore it.</p>
                         <p style="margin-top: 20px; color: #555;">Happy Coding!<br>The Code Eagles Team</p>
@@ -506,6 +324,7 @@ exports.resetPassword = async (req, res) => {
 
 
 
+
 exports.login = async (req, res) => {
     const { email, password } = req.body;
 
@@ -524,40 +343,8 @@ exports.login = async (req, res) => {
             return res.status(400).json({ message: 'Please verify your email first' });
         }
 
-<<<<<<< HEAD
-        // if (!user.fingerprint) {
-        //     user.fingerprint = fingerprint; 
-            
-        //     const token = jwt.sign(
-        //         { id: user._id, role: user.role },
-        //         process.env.JWT_SECRET,
-        //         { expiresIn: '3h' }
-        //     );
-        //     user.lastToken = token; 
-        
-        //     await user.save(); 
-        //     return res.status(200).json({
-        //         message: 'Login successful. Fingerprint saved for future logins.',
-        //         token,  
-        //     });
-        // }
-        
-
-        // if (user.role !== 'admin' && user.fingerprint !== fingerprint) {
-        //     return res.status(400).json({ message: 'Fingerprint mismatch. Login denied.' });
-        // }
-
-        const token = jwt.sign(
-            { id: user._id, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: '3h' }
-        );
-        user.lastToken = token; 
-        await user.save(); 
-=======
         const { accessToken, refreshToken } = generateTokens(user);
         
->>>>>>> 7bc10a1 (update)
         res.status(200).json({
             message: "Login successfully",
             accessToken: accessToken,
@@ -576,8 +363,6 @@ exports.login = async (req, res) => {
 };
 
 
-<<<<<<< HEAD
-=======
 
 
 exports.refreshToken = asyncHandler(async(req, res) =>{
@@ -620,7 +405,6 @@ exports.logout = asyncHandler(async(req, res) =>{
 })
 
 
->>>>>>> 7bc10a1 (update)
 exports.addUser = async (req, res) => {
     const session = await mongoose.startSession();
 
@@ -2061,8 +1845,6 @@ exports.setRoleToApproved = async (req, res) => {
         return res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
-<<<<<<< HEAD
-=======
 
 
 
@@ -2143,4 +1925,3 @@ exports.sendMessageToGroup = async (req, res) => {
       return res.status(500).json({ message: 'Server error' });
     }
 };
->>>>>>> 7bc10a1 (update)
