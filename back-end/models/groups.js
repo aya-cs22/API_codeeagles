@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 //creat schema for groups
 const groupsSchema = new mongoose.Schema({
-
   title: {
     type: String,
     required: true
@@ -49,7 +48,39 @@ const groupsSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  price: {
+    type: Number,
+    min: 0 
+  },
+
+  course_details: {
+    type: [{
+        title: String,
+        short_description: String, 
+        description: String,
+        image: String 
+    }],
+    default: []
+},
+
+about_course: {
+  type: [String],
+  default: []
+},
+
+instructorName:{
+  type:String,
+  // required:[true , 'instructor Name is required']
+},
+imageCourse:{
+  type:String,
+  // required:[true, 'image courrse is required']
+},
+imageInstructor:{
+  type:String,
+}
 });
+
 groupsSchema.pre('save', async function (next) {
   this.updated_at = Date.now();
   next();

@@ -8,7 +8,10 @@ router.post('/', authMiddleware, groupsController.creatGroups);
 router.post('/send-group-id', authMiddleware, groupsController.sendGroupId);
 
 router.get('/', groupsController.getAllGroups);
-router.get('/:groupId', authMiddleware, groupsController.getGroupsById);
+router.get('/get-all-group-by-admin', authMiddleware, groupsController.getAllGroupsByAdmin);
+
+router.get('/:groupId', groupsController.getGroupsById);
+router.get('/get-groupId-by-admin/:groupId', authMiddleware, groupsController.getGroupByIdAdmin);
 
 router.put('/:groupId', authMiddleware, groupsController.updateGroupsById);
 router.delete('/:groupId', authMiddleware, groupsController.deleteGroupsById);

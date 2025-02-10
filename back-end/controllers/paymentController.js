@@ -1,10 +1,16 @@
 const { getAuthToken, createOrder, getPaymentKey } = require('../services/paymobService');
 const Payment = require('../models/Payment');
-
+const Group = require('../models/groups');
 async function initiatePayment(req, res) {
-    const { amountInEGP, billingData } = req.body; 
+    const { groupId, billingData } = req.body; 
+    
     try {
-        const amountCents = amountInEGP * 100;
+        const group = await Group.findById(groupId);
+        if (!group) {
+            return res.status(404).json({ success: false, error: "الكورس غير موجود" });
+        }
+
+        const amountCents = group.price * 100;
 
         const authToken = await getAuthToken();
         const orderId = await createOrder(authToken, amountCents);
@@ -25,6 +31,7 @@ async function initiatePayment(req, res) {
         const paymentKey = await getPaymentKey(authToken, orderId, amountCents, completeBillingData);
 
         const payment = new Payment({
+            groupId, 
             amountCents, 
             billingData: completeBillingData,
             paymentKey,
@@ -34,8 +41,8 @@ async function initiatePayment(req, res) {
 
         res.json({
             success: true,
-            paymentKey: paymentKey,
-            paymentUrl: `https://accept.paymobsolutions.com/api/acceptance/iframes/${process.env.PAYMOB_INTEGRATION_ID}?payment_token=${paymentKey}`
+            paymentKey,
+            paymentUrl: `https://accept.paymobsolutions.com/api/acceptance/iframes/891699?payment_token=${paymentKey}`
         });
     } catch (error) {
         res.status(500).json({
@@ -44,5 +51,6 @@ async function initiatePayment(req, res) {
         });
     }
 }
+
 
 module.exports = { initiatePayment };

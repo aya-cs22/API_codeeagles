@@ -6,12 +6,13 @@ const authMiddleware = require('../middleware/authenticate');
 const lecturesValidator = require('../utils/validators/lecturesValidator.js');
 
 
-
+console.log("Start");
 router.post('/', authMiddleware, lecturesController.createLectures);
 router.put('/:lectureId', authMiddleware, lecturesController.updateLecturesById);
 router.get('/:lectureId', authMiddleware, lecturesController.getLectureById);
 router.get('/group/:groupId', authMiddleware, lecturesController.getLecturesByGroupId);
-router.post('/attend', authMiddleware, lecturesValidator, lecturesController.attendLecture);
+router.post('/attend', authMiddleware, lecturesController.attendLecture);
+
 router.get('/:lectureId/attendance', authMiddleware, lecturesController.getAttendanceByLecture);
 router.get('/:lectureId/non-attendees', authMiddleware, lecturesController.getUsersNotAttendedLecture);
 // router.get('/:groupId/attended-lectures', authMiddleware, lecturesController.getUserAttendedLecturesInGroup);

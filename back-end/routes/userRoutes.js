@@ -7,9 +7,14 @@ const authMiddleware = require('../middleware/authenticate')
 
 
 //authentication
+
 router.post('/register', userValidator, userController.register);
 router.post('/verify-Email', userValidator, userController.verifyEmail);
 router.post('/login',userValidator, userController.login);
+router.post('/refresh-token', userController.refreshToken);
+
+router.post('/logout', userController.logout);
+
 router.post('/forgot-password', userValidator, userController.forgotPassword);
 router.post('/reset-password', userValidator, userController.resetPassword);
 
@@ -43,11 +48,13 @@ router.get('/pending-join-requests/:groupId', authMiddleware, userController.get
 router.post('/accept-join-request', authMiddleware, userController.acceptJoinRequest);
 router.put('/set-role-to-pending/:userId/:groupId', authMiddleware, userController.setRoleToPending);
 router.put('/set-role-to-approved/:userId/:groupId', authMiddleware, userController.setRoleToApproved);
-
 router.post('/reject-join-request', authMiddleware, userController.rejectJoinRequest);
-
-
 router.post('/leave-group', authMiddleware, userController.leaveGroup);
 
+
+
+router.post('/accept-special-user', authMiddleware, userController.acceptSpecialUser);
+router.post('/update-user-lectures', authMiddleware, userController.updateSpecialUserLectures);
+router.post('/send-message-to-group/:groupId', authMiddleware, userController.sendMessageToGroup);
 
 module.exports = router; 
