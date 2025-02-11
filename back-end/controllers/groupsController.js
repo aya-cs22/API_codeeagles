@@ -237,4 +237,3 @@ exports.deleteGroupsById = async (req, res) => {
         session.endSession();
     }
 };
-

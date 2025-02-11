@@ -157,52 +157,33 @@ exports.register =asyncHandler (async (req, res) => {
 });
 
 
-exports.verifyEmail = async (req, res) => {
-    try {
-        const token = req.header('Authorization')?.replace('Bearer ', '');
-        if (!token) {
-            return res.status(401).json({ message: 'Access denied. ' });
-        }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.id);
-        if (!user) {
-            return res.status(401).json({ message: 'User not found.' });
-        }
 
-        const { email, code } = req.body;
 
-        if (!email || !code) {
-            return res.status(400).json({ message: 'Email and verification code are required' });
-        }
-
-        if (user.email !== email) {
-            return res.status(400).json({ message: 'Email does not match the logged in user' });
-        }
-
-        if (!user.emailVerificationCode || user.emailVerificationCode !== code || new Date() > user.verificationCodeExpiry) {
-            return res.status(400).json({ message: 'Invalid or expired verification code' });
-        }
-
-        user.isVerified = true;
-        user.emailVerificationCode = null;
-        user.verificationCodeExpiry = null;
-        await user.save();
-
-        res.status(200).json({ message: 'Email verified successfully' });
-
-    } catch (error) {
-        if (error.name === 'TokenExpiredError') {
-            return res.status(400).json({
-                message: 'Your token has expired. Please request a new verification token.'
-            });
-        }
-        console.error('Error verifying email: ', error);
-        res.status(500).json({ message: 'Server error' });
+exports.verifyEmail = asyncHandler(async(req, res) =>{
+    console.log("virify start");
+    const {email, code} = req.body;
+    console.log(`req.body ${email} ${code}`)
+    if(!email || !code){
+        return res.status(400).json({message: "Please Provide email and code"})
     }
-};
+    const user = await User.findOne({ email });
+    console.log(user)
+    if(!user){
+        return res.status(404).json({message: "user not found"});
+    }
+    console.log(`first ${code} and  ${user.code}`)
+    
+    if (!user.emailVerificationCode || user.emailVerificationCode !== code || new Date() > user.verificationCodeExpiry) {
+        return res.status(400).json({ message: 'Invalid or expired verification code' });
+    }
+    user.isVerified = true;
+    user.code = null;
+    user.verificationCodeExpiry = null;
+    await user.save();
 
-
+    return res.status(200).json({message: "Email virified successfully "})
+});
 // forget password
 
 exports.forgotPassword = async (req, res) => {
@@ -220,14 +201,14 @@ exports.forgotPassword = async (req, res) => {
         // const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
         //     expiresIn: '5m'
         // });
-        const token = jwt.sign(
-            { id: user._id, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: '10m' }
-        );
-        user.resetPasswordJWT = token;
-        user.lastToken = token;
-        console.log(token);
+        // const token = jwt.sign(
+        //     { id: user._id, role: user.role },
+        //     process.env.JWT_SECRET,
+        //     { expiresIn: '10m' }
+        // );
+        // user.resetPasswordJWT = token;
+        // user.lastToken = token;
+        // console.log(token);
         await user.save();
 
         const mailOptions = {
@@ -261,7 +242,7 @@ exports.forgotPassword = async (req, res) => {
         //     maxAge: 10 * 60 * 1000,
         // });
         await transporter.sendMail(mailOptions);
-        res.status(200).json({ message: 'Reset password email sent', token });
+        res.status(200).json({ message: 'Reset password email sent'});
     } catch (error) {
         if (error.name === 'TokenExpiredError') {
             return res.status(400).json({
@@ -276,51 +257,25 @@ exports.forgotPassword = async (req, res) => {
 
 
 
-exports.resetPassword = async (req, res) => {
-    try {
-
-        const token = req.header('Authorization')?.replace('Bearer ', '');
-        if (!token) {
-            return res.status(401).json({ message: 'Access denied. No token provided.' });
-        }
-
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.id);
-        if (!user) {
-            return res.status(401).json({ message: 'User not found.' });
-        }
-
-        const { resetCode, newPassword } = req.body;
-        if (!newPassword || newPassword.length < 10) {
-            return res.status(400).json({ message: 'New password must be at least 10 characters long' });
-        }
-
-        const validUser = await User.findOne({
-            resetPasswordToken: resetCode,
-            resetPasswordExpiry: { $gt: Date.now() }
-        });
-
-        if (!validUser || validUser.id !== user.id) {
-            return res.status(400).json({ message: 'Invalid or expired code, or user mismatch' });
-        }
-
-        user.password = newPassword;
-        user.resetPasswordToken = undefined;
-        user.resetPasswordExpiry = undefined;
-        user.tokenVersion += 1;
-        await user.save();
-
-        res.status(200).json({ message: 'Password has been reset successfully' });
-    } catch (error) {
-        if (error.name === 'TokenExpiredError') {
-            return res.status(400).json({
-                message: 'Your token has expired. Please request a new verification token.'
-            });
-        }
-        console.error('Error resetting password:', error);
-        res.status(500).json({ message: 'Server error' });
+exports.resetPassword = asyncHandler(async(req, res) =>{
+    const {resetCode, newPassword, email} = req.body;
+    if(!resetCode || !newPassword || !email){
+        return res.status(400).json({message: "Please Provide resetCode and newPassword"})
     }
-};
+    const user = await User.findOne({ email });
+    if(!user){
+        return res.status(404).json({message: "user not found"});
+    }
+
+    if(!user.resetPasswordToken || user.resetPasswordToken !== resetCode || new Date() > user.resetPasswordExpiry){
+        return res.status(400).json({message: "Invaild or expire rest code."});
+    }
+    user.password = newPassword;
+    user.resetCode = undefined;
+    user.resetCodeExpiry = undefined;
+    await user.save();
+    return res.status(201).json({message: "Password reset successful. You can now log in with your new password."})
+});
 
 
 
@@ -1925,3 +1880,25 @@ exports.sendMessageToGroup = async (req, res) => {
       return res.status(500).json({ message: 'Server error' });
     }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

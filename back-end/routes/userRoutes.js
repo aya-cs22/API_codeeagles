@@ -15,7 +15,7 @@ router.post('/refresh-token', userController.refreshToken);
 
 router.post('/logout', userController.logout);
 
-router.post('/forgot-password', userValidator, userController.forgotPassword);
+router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password', userValidator, userController.resetPassword);
 
 //feedback
